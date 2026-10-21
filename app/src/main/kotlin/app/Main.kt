@@ -11,6 +11,8 @@ import data.SeedData
 import data.schemas.Schema
 import data.services.AdminService
 import io.github.cdimascio.dotenv.dotenv
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlinx.coroutines.delay

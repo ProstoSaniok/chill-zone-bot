@@ -3,6 +3,7 @@ package core.routers
 import data.models.*
 import data.services.AdminService
 import data.services.AvatarService
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.Message
@@ -59,7 +60,7 @@ class RouterCore(
 💬 Обратная связь
 
 Для разбана обратитесь в службу поддержки."""
-            bot.sendMessage(chat, message, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.mainMenu())
+            bot.screenText(chat, message, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.mainMenu())
             true
         } else {
             false
@@ -67,6 +68,13 @@ class RouterCore(
     }
 
     fun handle(bot: Bot, message: Message) {
+        val actor = message.from ?: return
+        ScreenRenderer.transaction(bot, message.chat.id, actor.id) {
+            handleMessage(bot, message)
+        }
+    }
+
+    private fun handleMessage(bot: Bot, message: Message) {
         val sender = sender(message) ?: return
         val chat = ChatId.fromId(chatId(message))
         val uid = sender.id
@@ -87,7 +95,7 @@ class RouterCore(
             val (isValid, errorMessage) = FileValidator.validateAvatarImage(message)
             
             if (!isValid) {
-                bot.sendMessage(chat, errorMessage ?: "❌ Невозможно установить эту картинку на аватарку.")
+                bot.screenText(chat, errorMessage ?: "❌ Невозможно установить эту картинку на аватарку.")
                 return
             }
             
@@ -99,8 +107,8 @@ class RouterCore(
                 // Изображение квадратное - сразу сохраняем
                 users.setAvatar(activeUid, photo.fileId)
                 session.action = PendingAction.NONE
-                session.data.clear()
-                bot.sendMessage(chat, "✅ Аватарка сохранена!", replyMarkup = KeyboardFactory.profileMenu(users.profile(activeUid)))
+                session.clearDraft()
+                bot.screenText(chat, "✅ Аватарка сохранена!", replyMarkup = KeyboardFactory.profileMenu(users.profile(activeUid)))
             } else {
                 // Изображение не квадратное - предлагаем варианты обработки
                 val (minSize, dimension) = FileValidator.getImageProcessingInfo(width, height)
@@ -117,7 +125,7 @@ class RouterCore(
 
 Выберите, как установить аватарку:"""
                 
-                bot.sendMessage(
+                bot.screenText(
                     chat, 
                     messageText, 
                     parseMode = ParseMode.HTML,
@@ -131,27 +139,44 @@ class RouterCore(
         if (session.action == PendingAction.ADD_MEME && 
             (message.photo != null || message.document != null || message.video != null || 
              message.audio != null || message.voice != null || message.animation != null || message.sticker != null)) {
+            if (checkUserBan(bot, chat, activeUid, "😂 Мемы")) return
             
             val (isValid, errorMessage) = FileValidator.validateMemeImage(message)
             
             if (!isValid) {
-                bot.sendMessage(chat, errorMessage ?: "❌ Невозможно добавить этот файл как мем.")
+                bot.screenText(chat, errorMessage ?: "❌ Невозможно добавить этот файл как мем.")
                 return
             }
             
             val photo = message.photo!!.lastOrNull() ?: return
-            val caption = message.caption ?: session.data["caption"].orEmpty()
+            val caption = message.caption.orEmpty()
             memes.addMeme(photo.fileId, activeUid, caption)
             session.action = PendingAction.NONE
-            session.data.clear()
-            bot.sendMessage(chat, "Мем сохранён.", replyMarkup = KeyboardFactory.memesMenu())
+            RouterMemes.showMenu(bot, chat, activeUid, "✅ Мем добавлен в общую ленту! Можно добавить ещё один или перейти к просмотру.", session)
             return
         }
 
         if (text.isNullOrBlank()) return
 
+        // Навигация раздела доступна и во время ожидания фото.
+        if (RouterMemes.isNavigation(text) ||
+            (text == "⬅️ Обратно" && session.context == FSMContext.MEMES &&
+                session.data["meme_screen"] != null &&
+                session.action in listOf(PendingAction.NONE, PendingAction.ADD_MEME))) {
+            if (checkUserBan(bot, chat, activeUid, "😂 Мемы")) return
+            RouterMemes.handleMemeAction(bot, chat, activeUid, text, memes, users, session)
+            return
+        }
+        if ((text.startsWith("/") && text.substringBefore("@") != "/memes") || text in listOf(
+                "👤 Профиль", "🗂 Подборки", "🔮 Предсказания", "📝 Тесты", "📅 События",
+                "🎮 Мини-игры", "🖼 Пиксель-арт", "💬 Обратная связь", "⚙️ Настройки"
+            )) {
+            session.data.remove("meme_screen")
+            if (session.action == PendingAction.ADD_MEME) session.action = PendingAction.NONE
+        }
+
         // Сначала проверяем системные команды
-        when (text) {
+        when (if (text.startsWith("/")) text.substringBefore("@") else text) {
             "/start", "/start@" -> handleStart(bot, chat, uid)
             "/menu", "/menu@" -> handleMenu(bot, chat, uid)
             "/myid" -> {
@@ -164,8 +189,23 @@ class RouterCore(
 🔹 Админ: ${if (isAdmin) "✅ Да" else "❌ Нет"}
 
 📋 Админские ID в системе: ${AdminService.adminIds}"""
-                bot.sendMessage(chat, myidMessage, parseMode = ParseMode.HTML)
+                bot.screenText(chat, myidMessage, parseMode = ParseMode.HTML)
             }
+            // Команды открытия меню (поддерживают суффикс @BotUsername)
+            "/profile" -> RouterProfile.showProfile(bot, chat, uid, users)
+            "/collections" ->
+                    RouterCollections.handleCollectionAction(bot, chat, activeUid, "🗂 Подборки", users, session)
+            "/memes" ->
+                    if (!checkUserBan(bot, chat, activeUid, "😂 Мемы"))
+                        RouterMemes.handleMemeAction(bot, chat, activeUid, "😂 Мемы", memes, users, session)
+            "/predictions" ->
+                    RouterPredictions.handlePredictionAction(bot, chat, activeUid, "🔮 Предсказания", predictions, users, session)
+            "/tests" ->
+                    RouterTests.handleTestAction(bot, chat, activeUid, "📝 Тесты", tests, users, session)
+            "/events" ->
+                    RouterEvents.handleEventAction(bot, chat, activeUid, "📅 События", events, users, session)
+            "/games" ->
+                    RouterGames.handleGameAction(bot, chat, activeUid, "🎮 Мини-игры", games, users, session)
             "/reload_admins" -> {
                 val newAdmins = AdminService.reloadAdmins()
                 val reloadMessage = """🔄 <b>Админские ID перезагружены</b>
@@ -174,7 +214,7 @@ class RouterCore(
 
 🆔 Ваш ID: <code>$uid</code>
 🔹 Вы админ: ${if (uid in newAdmins) "✅ Да" else "❌ Нет"}"""
-                bot.sendMessage(chat, reloadMessage, parseMode = ParseMode.HTML)
+                bot.screenText(chat, reloadMessage, parseMode = ParseMode.HTML)
             }
             "⬅️ Обратно" -> {
                 // Сначала проверяем контекст просмотра профиля
@@ -235,8 +275,28 @@ class RouterCore(
                 )) {
                     // Если в контексте редактирования профиля - возвращаемся в меню профиля
                     session.action = PendingAction.NONE
-                    session.data.clear()
+                    session.clearDraft()
                     RouterProfile.showProfile(bot, chat, uid, users)
+                } else if (session.context == FSMContext.COLLECTIONS || session.action in listOf(
+                        PendingAction.VIEW_FAVORITES,
+                        PendingAction.SEARCH_TYPE_SELECT,
+                        PendingAction.COLLECTION_QUERY,
+                        PendingAction.COLLECTION_RESULTS
+                )) {
+                    RouterCollections.handleCollectionAction(bot, chat, activeUid, text, users, session)
+                } else if (session.action == PendingAction.SEARCH_PREDICTIONS) {
+                    RouterPredictions.handlePredictionAction(bot, chat, activeUid, text, predictions, users, session)
+                } else if (session.action in listOf(
+                        PendingAction.SEARCH_TESTS,
+                        PendingAction.TEST_SEARCH_RESULTS,
+                        PendingAction.CREATE_TEST_TITLE,
+                        PendingAction.CREATE_TEST_KIND,
+                        PendingAction.CREATE_TEST_PROMPT,
+                        PendingAction.CREATE_TEST_MORE,
+                        PendingAction.PLAY_TEST
+                )) {
+                    // Возврат из подменю тестов в меню тестов
+                    RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
                 } else if (session.action in listOf(
                     PendingAction.ADMIN_USER_MANAGEMENT,
                     PendingAction.ADMIN_USER_LIST,
@@ -264,24 +324,23 @@ class RouterCore(
 
     // Системные команды
     private fun handleStart(bot: Bot, chat: ChatId, uid: Long) {
+        ScreenRenderer.home()
         SessionStore.clear(uid)
         val profile = users.profile(uid)
         val welcomeMessage = "Привет! Это Chill Zone Bot — всё для досуга в одном месте."
-        ImageManager.sendMessageWithImage(bot, chat, welcomeMessage, profile) {
-            val menuMessage = "Главное меню."
-            bot.sendMessage(chat, menuMessage, replyMarkup = KeyboardFactory.mainMenu())
-        }
+        bot.screenText(chat, welcomeMessage, replyMarkup = KeyboardFactory.mainMenu())
     }
 
     private fun handleMenu(bot: Bot, chat: ChatId, uid: Long) {
+        ScreenRenderer.home()
         SessionStore.clear(uid)
         val menuMessage = "Главное меню."
-        bot.sendMessage(chat, menuMessage, replyMarkup = KeyboardFactory.mainMenu())
+        bot.screenText(chat, menuMessage, replyMarkup = KeyboardFactory.mainMenu())
     }
 
     private fun handleBack(bot: Bot, chat: ChatId, uid: Long) {
         SessionStore.clear(uid)
-        bot.sendMessage(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
+        bot.screenText(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
     }
 
     // Перенаправление в модули
@@ -296,13 +355,13 @@ class RouterCore(
         when (text) {
             "👤 Профиль" -> RouterProfile.showProfile(bot, chat, uid, users)
             // Кнопки профиля
-            "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора", "Изменить имя", "Показать username [👁️]", "Скрыть username [🙈]", "Изменить био", "Показать профиль [👁️]", "Скрыть профиль [🙈]", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку", "⬅️ Назад", "Сменить аккаунт на пользователя", "Сменить аккаунт на админа" -> {
+            "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора", "Изменить имя", "Показать username [👁️]", "Скрыть username [🙈]", "Изменить био", "Показать профиль [👁️]", "Скрыть профиль [🙈]", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку", "⬅️ Назад", "Вернуться в свой профиль", "Сменить аккаунт на пользователя", "Сменить аккаунт на админа" -> {
                 RouterProfile.handleProfileAction(bot, chat, uid, text, users, session)
             }
             // Админские кнопки
             "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи", "📊 Статистика",
             " Показать всех", "✅ Показать разбаненных", "🚫 Показать забаненных",
-            "⬅️ Предыдущий", "➡️ Следующий", "⬅️ В список", "⬅️ Отмена", "🚪 Выйти из поиска",
+            "⬅️ Предыдущий", "➡️ Следующий", "⬅️ В список", "⬅️ Отмена",
             "🚫 Забанить", "✅ Разбанить", "📝 Написать причину бана" -> {
                 RouterAdmin.handleAdminAction(bot, chat, uid, text, users, session)
             }
@@ -359,23 +418,31 @@ class RouterCore(
                 if (checkUserBan(bot, chat, activeUid, "📅 События")) return
                 RouterEvents.handleEventAction(bot, chat, activeUid, text, events, users, session)
             }
-            "🎮 Мини-игры" -> {
+            "Ближайшие события", "Мои события", "Создать событие" -> {
+                if (checkUserBan(bot, chat, activeUid, "📅 События")) return
+                RouterEvents.handleEventAction(bot, chat, activeUid, text, events, users, session)
+            }
+            "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "✂️ Камень-ножницы-бумага", "📊 Моя статистика", "🏆 Топ игроков", "🎮 Мини-игры" -> {
                 if (checkUserBan(bot, chat, activeUid, "🎮 Мини-игры")) return
                 RouterGames.handleGameAction(bot, chat, activeUid, text, games, users, session)
             }
-            "🖼 Пиксель-арт" -> {
+            "Публичный холст", "🖼 Пиксель-арт" -> {
                 if (checkUserBan(bot, chat, activeUid, "🖼 Пиксель-арт")) return
                 RouterPixelArt.handlePixelAction(bot, chat, activeUid, text, users)
             }
-            "💬 Обратная связь" -> RouterFeedBack.handleFeedbackAction(bot, chat, activeUid, text, feedback, users, session)
+            "Оставить отзыв", "Посмотреть поддержку", "💬 Обратная связь" -> RouterFeedBack.handleFeedbackAction(bot, chat, activeUid, text, feedback, users, session)
             "💾 Сохранить" -> handleSaveAction(bot, chat, activeUid, session)
             "➡️ Ещё" -> handleMoreAction(bot, chat, activeUid, session)
+            "Случайный тест", "Создать тест", "Мои тесты", "Поиск тестов" -> {
+                if (checkUserBan(bot, chat, activeUid, "📝 Тесты")) return
+                RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
+            }
             "🔍 Новый запрос" -> {
                 // Передаем обработку в RouterCollections
                 if (RouterCollections.handleCollectionAction(bot, chat, uid, text, users, session)) {
                     return
                 } else {
-                    bot.sendMessage(chat, "Не понял команду. Открой меню через /start.", replyMarkup = KeyboardFactory.mainMenu())
+                    handleUnknownCommand(bot, chat)
                 }
             }
             else -> {
@@ -384,9 +451,15 @@ class RouterCore(
                     RouterAdmin.handleAdminAction(bot, chat, uid, text, users, session)
                     return
                 }
-                bot.sendMessage(chat, "Не понял команду. Открой меню через /start.", replyMarkup = KeyboardFactory.mainMenu())
+                handleUnknownCommand(bot, chat)
             }
         }
+    }
+
+    private fun handleUnknownCommand(bot: Bot, chat: ChatId) {
+        // Не перекидываем пользователя в другое меню: клавиатура текущего меню сохраняется,
+        // поэтому пользователь остаётся там, где был.
+        bot.screenText(chat, "🤷 Не понял команду. Вы остались в текущем меню.")
     }
 
     // Специальные обработчики для контекстных команд
@@ -424,8 +497,10 @@ class RouterCore(
 
     // Обработка pending actions - перенаправление в модули
     private fun handlePending(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean {
+        val activeUid = session.data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
         return when (session.action) {
-            PendingAction.AVATAR_PROCESSING -> handleAvatarProcessing(bot, chat, uid, text, session)
+            PendingAction.ADD_MEME -> RouterMemes.handleMemeAction(bot, chat, activeUid, text, memes, users, session)
+            PendingAction.AVATAR_PROCESSING -> handleAvatarProcessing(bot, chat, activeUid, text, session)
             PendingAction.EDIT_PROFILE, PendingAction.EDIT_NAME, PendingAction.EDIT_BIO -> {
                 RouterProfile.handleProfileAction(bot, chat, uid, text, users, session)
             }
@@ -436,37 +511,44 @@ class RouterCore(
                     if (AdminService.setBanReason(targetUserId, text)) {
                         val targetUser = users.profile(targetUserId)
                         if (targetUser != null) {
-                            bot.sendMessage(chat, "✅ Причина бана установлена: \"<b>$text</b>\"", parseMode = ParseMode.HTML)
+                            bot.screenText(chat, "✅ Причина бана установлена: \"<b>$text</b>\"", parseMode = ParseMode.HTML)
                             session.action = PendingAction.NONE
                             session.data.remove("admin_edit_target_user")
                             RouterAdminUsers.showUserProfileView(bot, chat, uid, targetUser, users)
                         } else {
-                            bot.sendMessage(chat, "❌ Ошибка: пользователь не найден")
+                            bot.screenText(chat, "❌ Ошибка: пользователь не найден")
                         }
                     } else {
-                        bot.sendMessage(chat, "❌ Ошибка при сохранении причины бана")
+                        bot.screenText(chat, "❌ Ошибка при сохранении причины бана")
                     }
                 } else {
-                    bot.sendMessage(chat, "❌ Ошибка: не указан пользователь")
+                    bot.screenText(chat, "❌ Ошибка: не указан пользователь")
                 }
                 true
             }
+            PendingAction.RPS_CHOICE -> RouterGames.handleRpsChoice(bot, chat, activeUid, text, games, users, session)
             PendingAction.FEEDBACK_TEXT -> {
-                RouterFeedBack.handleFeedbackAction(bot, chat, uid, text, feedback, users, session)
+                RouterFeedBack.handleFeedbackAction(bot, chat, activeUid, text, feedback, users, session)
             }
             PendingAction.ADD_PREDICTION_TEXT, PendingAction.ADD_PREDICTION_RARITY, PendingAction.SEARCH_PREDICTIONS -> {
-                RouterPredictions.handlePredictionAction(bot, chat, uid, text, predictions, users, session)
+                RouterPredictions.handlePredictionAction(bot, chat, activeUid, text, predictions, users, session)
             }
             PendingAction.CREATE_TEST_TITLE, PendingAction.CREATE_TEST_KIND, PendingAction.CREATE_TEST_PROMPT, 
-            PendingAction.CREATE_TEST_MORE, PendingAction.PLAY_TEST -> {
-                RouterTests.handleTestAction(bot, chat, uid, text, tests, users, session)
+            PendingAction.CREATE_TEST_MORE -> {
+                RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
+            }
+            PendingAction.PLAY_TEST -> {
+                RouterTests.handleTestAnswer(bot, chat, activeUid, text, session, tests, users)
+            }
+            PendingAction.SEARCH_TESTS, PendingAction.TEST_SEARCH_RESULTS -> {
+                RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
             }
             PendingAction.CREATE_EVENT_TITLE, PendingAction.CREATE_EVENT_DESC, PendingAction.CREATE_EVENT_PLACE,
-            PendingAction.CREATE_EVENT_TIME, PendingAction.CREATE_EVENT_MAX -> {
-                RouterEvents.handleEventAction(bot, chat, uid, text, events, users, session)
+            PendingAction.CREATE_EVENT_TIME, PendingAction.CREATE_EVENT_MAX, PendingAction.CREATE_EVENT_KIND -> {
+                RouterEvents.handleEventAction(bot, chat, activeUid, text, events, users, session)
             }
             PendingAction.SEARCH_TYPE_SELECT, PendingAction.COLLECTION_QUERY, PendingAction.COLLECTION_RESULTS -> {
-                RouterCollections.handleCollectionAction(bot, chat, uid, text, users, session)
+                RouterCollections.handleCollectionAction(bot, chat, activeUid, text, users, session)
             }
             // Админские действия
             PendingAction.ADMIN_USER_MANAGEMENT,
@@ -495,10 +577,10 @@ class RouterCore(
                 if (processedFilePath != null) {
                     users.setAvatar(uid, processedFilePath)
                     session.action = PendingAction.NONE
-                    session.data.clear()
+                    session.clearDraft()
                     RouterProfile.showProfile(bot, chat, uid, users)
                 } else {
-                    bot.sendMessage(chat, "❌ Ошибка при обработке изображения")
+                    bot.screenText(chat, "❌ Ошибка при обработке изображения")
                 }
                 true
             }
@@ -508,16 +590,16 @@ class RouterCore(
                 if (processedFilePath != null) {
                     users.setAvatar(uid, processedFilePath)
                     session.action = PendingAction.NONE
-                    session.data.clear()
+                    session.clearDraft()
                     RouterProfile.showProfile(bot, chat, uid, users)
                 } else {
-                    bot.sendMessage(chat, "❌ Ошибка при обработке изображения")
+                    bot.screenText(chat, "❌ Ошибка при обработке изображения")
                 }
                 true
             }
             text == "⬅️ Отмена" -> {
                 session.action = PendingAction.NONE
-                session.data.clear()
+                session.clearDraft()
                 RouterProfile.showProfile(bot, chat, uid, users)
                 true
             }
@@ -527,6 +609,105 @@ class RouterCore(
     
     // Обработка callback запросов - перенаправление в соответствующие модули
     fun handleCallback(bot: Bot, callback: com.github.kotlintelegrambot.entities.CallbackQuery) {
+        val message = callback.message ?: run {
+            bot.answerCallbackQuery(callback.id, "Открой /menu в чате с ботом.")
+            return
+        }
+        ScreenRenderer.transaction(bot, message.chat.id, callback.from.id, callback) { action ->
+            val uid = callback.from.id
+            val session = SessionStore.get(uid)
+            val chat = ChatId.fromId(message.chat.id)
+            val activeUid = session.data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
+            var command = action ?: return@transaction
+            if (command.startsWith("confirm:")) {
+                command = command.removePrefix("confirm:")
+            } else if (command.startsWith("admin_ban_") || command.startsWith("admin_unban_") ||
+                command.startsWith("admin_role_toggle_") || command in listOf("text:🚫 Забанить", "text:✅ Разбанить")) {
+                if (!AdminService.isAdmin(uid) && users.profile(uid)?.accountType != AccountType.MODERATOR) {
+                    bot.screenText(chat, "Недостаточно прав.")
+                    return@transaction
+                }
+                val target = command.substringAfterLast('_').toLongOrNull()
+                    ?: session.data["admin_profile_view_user_id"]?.toLongOrNull()
+                ScreenRenderer.pushHistory()
+                bot.screenText(chat, "Подтверди действие над пользователем #${target ?: "неизвестен"}: " +
+                    when {
+                        command.contains("unban") || command == "text:✅ Разбанить" -> "снять блокировку"
+                        command.contains("role_toggle") -> "изменить роль"
+                        else -> "заблокировать"
+                    }, replyMarkup = com.github.kotlintelegrambot.entities.InlineKeyboardMarkup.create(listOf(listOf(
+                        com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData("Подтвердить", "confirm:$command"),
+                        com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData("Отмена", "text:⬅️ Обратно")
+                    ))))
+                return@transaction
+            }
+            if (command == "text:🏠 Главное меню" || command == "text:/menu") {
+                ScreenRenderer.home()
+                handleMenu(bot, chat, uid)
+            } else if (command == "text:❌ Отмена") {
+                if (!ScreenRenderer.cancel()) handleMenu(bot, chat, uid)
+            } else if (command.startsWith("answer:")) {
+                if (checkUserBan(bot, chat, uid, "📝 Тесты") ||
+                    (activeUid != uid && checkUserBan(bot, chat, activeUid, "📝 Тесты"))) return@transaction
+                if (session.action == PendingAction.PLAY_TEST) RouterTests.handleTestAnswer(bot, chat, activeUid,
+                    command.removePrefix("answer:"), session, tests, users)
+            } else if (command in listOf("text:⬅️ Обратно", "text:⬅️ Назад", "text:⬅️ Отмена", "text:❌ Отменить добавление")) {
+                if (!ScreenRenderer.back()) handleMenu(bot, chat, uid)
+            } else if (command.startsWith("text:")) {
+                val text = command.removePrefix("text:")
+                if (isForwardNavigation(text)) ScreenRenderer.pushHistory()
+                // Buttons are commands, never accidental text input into a pending form.
+                if (!handleButton(bot, chat, uid, activeUid, text, session)) {
+                    handleMessage(bot, message.copy(from = callback.from, text = text))
+                }
+            } else {
+                if (command.startsWith("admin_profile_") || command.startsWith("test_search_start_")) ScreenRenderer.pushHistory()
+                handleServiceCallback(bot, callback.copy(data = command))
+            }
+        }
+    }
+
+    private fun isForwardNavigation(text: String): Boolean = text in setOf(
+        "👤 Профиль", "🗂 Подборки", "😂 Мемы", "🔮 Предсказания", "📝 Тесты", "📅 События",
+        "🎮 Мини-игры", "🖼 Пиксель-арт", "💬 Обратная связь", "⚙️ Настройки",
+        "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора",
+        "Изменить имя", "Изменить био", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку",
+        "🔍 Поиск", "⭐ Избранное", "🎲 Смотреть мемы", "⭐ Избранные мемы", "➕ Добавить мем",
+        "Поиск предсказаний", "Мои предсказания", "Создать тест", "Поиск тестов", "Мои тесты",
+        "Создать событие", "Мои события", "Оставить отзыв", "Посмотреть поддержку", "Публичный холст",
+        "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи",
+        "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага"
+    )
+
+    private fun handleButton(bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session): Boolean {
+        if (RouterMemes.isNavigation(text)) {
+            if (!checkUserBan(bot, chat, activeUid, "😂 Мемы")) {
+                RouterMemes.handleMemeAction(bot, chat, activeUid, text, memes, users, session)
+            }
+            return true
+        }
+        if (text == "Вернуться в свой профиль") {
+            ScreenRenderer.home()
+            return RouterProfile.handleProfileAction(bot, chat, uid, text, users, session)
+        }
+        if (text.startsWith("Тип бана:") || text == "Изменить время бана" || text == "🕒 Получить точное время бана" ||
+            text.startsWith("➕ ") || text.startsWith("➖ ") || text == "⬅️ К профилю") {
+            RouterAdmin.handleAdminAction(bot, chat, uid, text, users, session)
+            return true
+        }
+        if (text in listOf("🎬 Фильм", "📺 Сериал", "📚 Книга", "🎮 Игра")) {
+            ScreenRenderer.pushHistory()
+            return RouterCollections.handleCollectionAction(bot, chat, activeUid, text, users, session)
+        }
+        if (isForwardNavigation(text) || text in listOf("Получить предсказание", "Получить ещё", "Ближайшие события", "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "Случайный тест")) {
+            session.action = PendingAction.NONE
+            handleModuleRoutes(bot, chat, uid, activeUid, text, session)
+            return true
+        }
+        return false
+    }
+
+    private fun handleServiceCallback(bot: Bot, callback: com.github.kotlintelegrambot.entities.CallbackQuery) {
         val uid = callback.from.id
         val uname = callback.from.username ?: ""
         val dname = displayName(callback.from)
@@ -534,6 +715,12 @@ class RouterCore(
         users.ensure(uid, uname, dname)
         users.updateLastActivity(uid)  // Обновляем время последней активности
         val data = callback.data
+        val activeUid = SessionStore.get(uid).data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
+        if (!data.startsWith("admin_") && !data.startsWith("ban_") &&
+            (AdminService.isUserBanned(uid) || AdminService.isUserBanned(activeUid))) {
+            bot.callbackNotice(callback.id, "Доступ ограничен.")
+            return
+        }
 
         when {
             // Админские функции
@@ -547,9 +734,12 @@ class RouterCore(
             data.startsWith("meme_") -> {
                 RouterMemes.handleCallback(bot, callback, memes)
             }
+            data.startsWith("test_") -> {
+                RouterTests.handleCallback(bot, callback, tests, users)
+            }
             // Другие callback запросы можно добавить здесь по мере необходимости
             else -> {
-                bot.answerCallbackQuery(callback.id, "Неизвестная команда.")
+                bot.callbackNotice(callback.id, "Неизвестная команда.")
             }
         }
     }
