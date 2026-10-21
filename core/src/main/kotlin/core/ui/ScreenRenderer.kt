@@ -143,7 +143,7 @@ object ScreenRenderer {
         val isForm = isInputAction(pending)
         if (isForm) {
             // Text-entry screens must not offer unrelated menu actions as answers.
-            val choices = setOf("SINGLE", "MULTI", "NUMBER", "MATCH", "Концерт", "Митап", "Вечеринка",
+            val choices = setOf("SINGLE", "MULTI", "NUMBER", "TEXT", "MATCH", "COLOR", "Концерт", "Митап", "Вечеринка",
                 "Другое", "камень", "ножницы", "бумага")
             val filtered = rows.map { row -> row.filter { button ->
                 button !is InlineKeyboardButton.CallbackData ||
@@ -283,7 +283,8 @@ object ScreenRenderer {
         PendingAction.EDIT_NAME, PendingAction.EDIT_USERNAME, PendingAction.EDIT_BIO, PendingAction.EDIT_AVATAR,
         PendingAction.AVATAR_PROCESSING, PendingAction.ADD_MEME, PendingAction.FEEDBACK_TEXT,
         PendingAction.SEARCH_PREDICTIONS, PendingAction.SEARCH_TESTS, PendingAction.COLLECTION_QUERY,
-        PendingAction.CREATE_TEST_TITLE, PendingAction.CREATE_TEST_KIND, PendingAction.CREATE_TEST_PROMPT,
+        PendingAction.CREATE_TEST_TITLE, PendingAction.CREATE_TEST_AUTHOR, PendingAction.CREATE_TEST_COUNT,
+        PendingAction.CREATE_TEST_KIND, PendingAction.CREATE_TEST_PROMPT,
         PendingAction.CREATE_TEST_MORE, PendingAction.CREATE_EVENT_TITLE, PendingAction.CREATE_EVENT_DESC,
         PendingAction.CREATE_EVENT_PLACE, PendingAction.CREATE_EVENT_TIME, PendingAction.CREATE_EVENT_MAX,
         PendingAction.CREATE_EVENT_KIND, PendingAction.RPS_CHOICE, PendingAction.PLAY_TEST,

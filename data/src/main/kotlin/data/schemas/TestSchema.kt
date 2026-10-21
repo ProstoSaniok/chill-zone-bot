@@ -6,6 +6,7 @@ import data.models.*
 object TestSchema {
     fun ensure() {
         Db.raw(createTestsTable())
+        Db.raw("alter table tests add column if not exists author_name text")
         Db.raw(createTestQuestionsTable())
         Db.raw(createTestRunsTable())
         Db.raw(createTestAnswersTable())
@@ -17,6 +18,7 @@ object TestSchema {
                 id bigserial primary key,
                 title text not null,
                 author_id bigint references users(user_id) on delete set null,
+                author_name text,
                 created_at timestamptz not null default now()
             )
             """

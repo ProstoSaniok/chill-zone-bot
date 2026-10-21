@@ -6,7 +6,8 @@ object KeyboardTests {
     fun testsMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("Случайный тест", "Создать тест"),
-            listOf("Мои тесты", "Поиск тестов"),
+            listOf("Пройти тест", "Мои тесты"),
+            listOf("Поиск тестов"),
             listOf("⬅️ Обратно")
         )
     )
@@ -26,7 +27,8 @@ object KeyboardTests {
     fun testKinds(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("SINGLE", "MULTI"),
-            listOf("NUMBER", "MATCH"),
+            listOf("NUMBER", "TEXT"),
+            listOf("MATCH", "COLOR"),
             listOf("⬅️ Обратно")
         )
     )

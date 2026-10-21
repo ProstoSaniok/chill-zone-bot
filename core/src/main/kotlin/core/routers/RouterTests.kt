@@ -19,6 +19,51 @@ import data.services.ModerationService
 
 object RouterTests {
     private const val PAGE_SIZE = 5
+    private const val OPTION_SEPARATOR = "\u001f"
+
+    private fun answerPrompt(kind: QuestionKind): String = when (kind) {
+        QuestionKind.SINGLE -> "Введи варианты через | и правильный номер последним: Красный | Синий | 2"
+        QuestionKind.MULTI -> "Введи варианты через | и номера правильных ответов последними: Красный | Синий | Белый | 1,3"
+        QuestionKind.NUMBER -> "Введи правильный ответ числом."
+        QuestionKind.TEXT -> "Введи правильный текстовый ответ."
+        QuestionKind.MATCH -> "Введи правильные пары: кот=мяу;собака=гав"
+        QuestionKind.COLOR -> "Введи пары цветов: красный=red;синий=blue"
+    }
+
+    internal fun parseQuestion(kind: QuestionKind, prompt: String, input: String): NewTestQuestion? {
+        val parts = input.split('|').map { it.trim() }
+        return when (kind) {
+            QuestionKind.SINGLE, QuestionKind.MULTI -> {
+                val options = parts.dropLast(1)
+                val answers = parts.lastOrNull()?.split(',')?.map { it.trim() }.orEmpty()
+                if (options.size !in 2..6 || options.any(String::isBlank) || answers.isEmpty() ||
+                    answers.any { answer -> answer.toIntOrNull()?.let { it !in 1..options.size } ?: true } ||
+                    (kind == QuestionKind.SINGLE && answers.size != 1) || answers.distinct().size != answers.size
+                ) null else NewTestQuestion(kind, prompt, options, answers.joinToString(","))
+            }
+            QuestionKind.NUMBER -> input.trim().takeIf { it.toDoubleOrNull() != null }
+                ?.let { NewTestQuestion(kind, prompt, emptyList(), it) }
+            QuestionKind.TEXT -> input.trim().takeIf(String::isNotBlank)
+                ?.let { NewTestQuestion(kind, prompt, emptyList(), it) }
+            QuestionKind.MATCH, QuestionKind.COLOR -> input.trim().takeIf {
+                val pairs = it.split(';').map { pair -> pair.trim() }
+                pairs.isNotEmpty() && pairs.all { pair ->
+                    val sides = pair.split('=')
+                    sides.size == 2 && sides.all(String::isNotBlank)
+                }
+            }?.let { NewTestQuestion(kind, prompt, emptyList(), it) }
+        }
+    }
+
+    private fun draftQuestions(session: Session, count: Int): List<NewTestQuestion> = (0 until count).map { index ->
+        val prefix = "test_question_${index}_"
+        NewTestQuestion(
+            QuestionKind.valueOf(session.data.getValue(prefix + "kind")),
+            session.data.getValue(prefix + "prompt"),
+            session.data.getValue(prefix + "options").split(OPTION_SEPARATOR).filter(String::isNotBlank),
+            session.data.getValue(prefix + "answer")
+        )
+    }
 
     private fun showTestsMenu(bot: Bot, chat: ChatId, uid: Long, tests: TestRepository, users: UserRepository) {
         val session = SessionStore.get(uid)
@@ -63,7 +108,8 @@ object RouterTests {
             uid: Long,
             tests: List<TestSummary>,
             index: Int,
-            query: String
+            query: String,
+            scope: String = "search"
     ) {
         if (tests.isEmpty()) return
         val session = SessionStore.get(uid)
@@ -73,10 +119,17 @@ object RouterTests {
         session.action = PendingAction.TEST_SEARCH_RESULTS
         session.data["test_search_results"] = tests.joinToString("|") { it.id.toString() }
         session.data["test_search_query"] = query
+        session.data["test_list_scope"] = scope
         session.data["test_search_index"] = safeIndex.toString()
         session.data["last_menu"] = "tests"
 
-        val message = """🔎 <b>Поиск по</b> "$query" (${safeIndex + 1}-$endIndex из ${tests.size})
+        val safeQuery = query.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        val heading = when (scope) {
+            "all" -> "Доступные тесты"
+            "mine" -> "Мои тесты"
+            else -> "Поиск по «$safeQuery»"
+        }
+        val message = """📝 <b>$heading</b> (${safeIndex + 1}-$endIndex из ${tests.size})
 
 Выберите тест:"""
 
@@ -85,7 +138,7 @@ object RouterTests {
             rows.add(
                     listOf(
                             com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData(
-                                    text = "📝 ${test.title}",
+                                    text = "📝 ${test.title} (${test.questionCount} вопр.) — ${test.authorName ?: "Автор не указан"}",
                                     callbackData = "test_search_start_${test.id}"
                             )
                 )
@@ -136,19 +189,13 @@ object RouterTests {
         sendTestQuestion(bot, chat, runId, tests)
     }
 
-    fun showUserTests(bot: Bot, chat: ChatId, tests: TestRepository) {
-        val list = tests.listTests()
+    fun showUserTests(bot: Bot, chat: ChatId, uid: Long, tests: TestRepository) {
+        val list = tests.listTests(uid)
         if (list.isEmpty()) {
-            bot.screenText(chat, "Пока тестов нет.", replyMarkup = KeyboardFactory.testsMenu())
+            bot.screenText(chat, "Вы пока не создали тестов.", replyMarkup = KeyboardFactory.testsMenu())
             return
         }
-        val my = list.take(10).joinToString("\n") { "• #${it.id} ${it.title}" }
-        bot.screenText(
-                chat,
-                "Доступные тесты:\n$my",
-                parseMode = ParseMode.HTML,
-                replyMarkup = KeyboardFactory.testsMenu()
-        )
+        showTestSearchResults(bot, chat, uid, list, 0, "", "mine")
     }
 
     fun handleTestAction(
@@ -171,7 +218,13 @@ object RouterTests {
             }
             "Мои тесты" -> {
                 SessionStore.get(uid).data["last_menu"] = "tests"
-                showUserTests(bot, chat, tests)
+                showUserTests(bot, chat, uid, tests)
+                return true
+            }
+            "Пройти тест" -> {
+                val available = tests.listTests().filter { it.questionCount > 0 }
+                if (available.isEmpty()) bot.screenText(chat, "Пока нет доступных тестов.", replyMarkup = KeyboardFactory.testsMenu())
+                else showTestSearchResults(bot, chat, uid, available, 0, "", "all")
                 return true
             }
             "Создать тест" -> {
@@ -193,6 +246,8 @@ object RouterTests {
                                 PendingAction.SEARCH_TESTS,
                                 PendingAction.TEST_SEARCH_RESULTS,
                                 PendingAction.CREATE_TEST_TITLE,
+                                PendingAction.CREATE_TEST_AUTHOR,
+                                PendingAction.CREATE_TEST_COUNT,
                                 PendingAction.CREATE_TEST_KIND,
                                 PendingAction.CREATE_TEST_PROMPT,
                                 PendingAction.CREATE_TEST_MORE,
@@ -218,7 +273,7 @@ object RouterTests {
                         }
 
                         val results = tests.listTests().filter {
-                            it.title.contains(query, ignoreCase = true)
+                            it.questionCount > 0 && it.title.contains(query, ignoreCase = true)
                         }
                         if (results.isEmpty()) {
                             bot.screenText(
@@ -234,6 +289,8 @@ object RouterTests {
 
                 when (session.action) {
                     PendingAction.CREATE_TEST_TITLE,
+                    PendingAction.CREATE_TEST_AUTHOR,
+                    PendingAction.CREATE_TEST_COUNT,
                     PendingAction.CREATE_TEST_KIND,
                     PendingAction.CREATE_TEST_PROMPT,
                     PendingAction.CREATE_TEST_MORE -> {
@@ -267,50 +324,88 @@ object RouterTests {
 
                 when (session.action) {
                     PendingAction.CREATE_TEST_TITLE -> {
-                        session.data["test_title"] = text
+                        if (text.isBlank()) {
+                            bot.screenText(chat, "Название не может быть пустым.")
+                            return true
+                        }
+                        session.data["test_title"] = text.trim()
+                        session.action = PendingAction.CREATE_TEST_AUTHOR
+                        bot.screenText(chat, "Введи псевдоним автора, который увидят другие пользователи.")
+                        return true
+                    }
+                    PendingAction.CREATE_TEST_AUTHOR -> {
+                        if (text.isBlank()) {
+                            bot.screenText(chat, "Псевдоним не может быть пустым.")
+                            return true
+                        }
+                        session.data["test_author"] = text.trim()
+                        session.action = PendingAction.CREATE_TEST_COUNT
+                        bot.screenText(chat, "Сколько вопросов будет в тесте? Введи число от 1 до 20.")
+                        return true
+                    }
+                    PendingAction.CREATE_TEST_COUNT -> {
+                        val count = text.trim().toIntOrNull()
+                        if (count == null || count !in 1..20) {
+                            bot.screenText(chat, "Введи число вопросов от 1 до 20.")
+                            return true
+                        }
+                        session.data["test_count"] = count.toString()
+                        session.data["test_index"] = "0"
                         session.action = PendingAction.CREATE_TEST_KIND
-                        bot.screenText(chat, "Выбери тип теста:", replyMarkup = KeyboardFactory.testKinds())
+                        bot.screenText(chat, "Вопрос 1/$count. Выбери тип ответа:", replyMarkup = KeyboardFactory.testKinds())
                         return true
                     }
                     PendingAction.CREATE_TEST_KIND -> {
-                        val kind = text.lowercase()
-                        if (kind !in listOf("single", "multi", "number", "match")) {
-                            bot.screenText(
-                                    chat,
-                                    "Неверный тип. Используй: single, multi, number, match"
-                            )
+                        val kind = QuestionKind.entries.firstOrNull { it.name.equals(text.trim(), ignoreCase = true) }
+                        if (kind == null) {
+                            bot.screenText(chat, "Выбери тип ответа кнопкой ниже.", replyMarkup = KeyboardFactory.testKinds())
                             return true
                         }
-                        session.data["test_kind"] = kind
+                        session.data["test_kind"] = kind.name
                         session.action = PendingAction.CREATE_TEST_PROMPT
                         bot.screenText(chat, "Напиши вопрос:")
                         return true
                     }
                     PendingAction.CREATE_TEST_PROMPT -> {
-                        session.data["test_prompt"] = text
+                        if (text.isBlank()) {
+                            bot.screenText(chat, "Вопрос не может быть пустым.")
+                            return true
+                        }
+                        session.data["test_prompt"] = text.trim()
                         session.action = PendingAction.CREATE_TEST_MORE
-                        bot.screenText(
-                                chat,
-                                "Напиши варианты ответа (через |) и правильный ответ после |:\nПример: Вариант1 | Вариант2 | Вариант3 | 1"
-                        )
+                        bot.screenText(chat, answerPrompt(QuestionKind.valueOf(session.data.getValue("test_kind"))))
                         return true
                     }
                     PendingAction.CREATE_TEST_MORE -> {
                         val title = session.data["test_title"] ?: ""
-                        val kind = session.data["test_kind"] ?: "single"
+                        val kind = QuestionKind.valueOf(session.data.getValue("test_kind"))
                         val prompt = session.data["test_prompt"] ?: ""
-
-                        val parts = text.split("|").map { it.trim() }
-                        val options = parts.dropLast(1)
-                        val answer = parts.last()
-
+                        val question = parseQuestion(kind, prompt, text)
+                        if (question == null) {
+                            bot.screenText(chat, "Неверный формат ответа. ${answerPrompt(kind)}")
+                            return true
+                        }
+                        val index = session.data.getValue("test_index").toInt()
+                        val prefix = "test_question_${index}_"
+                        session.data[prefix + "kind"] = question.kind.name
+                        session.data[prefix + "prompt"] = question.prompt
+                        session.data[prefix + "options"] = question.options.joinToString(OPTION_SEPARATOR)
+                        session.data[prefix + "answer"] = question.answer
+                        val count = session.data.getValue("test_count").toInt()
+                        if (index + 1 < count) {
+                            session.data["test_index"] = (index + 1).toString()
+                            session.action = PendingAction.CREATE_TEST_KIND
+                            bot.screenText(chat, "Вопрос ${index + 2}/$count. Выбери тип ответа:", replyMarkup = KeyboardFactory.testKinds())
+                            return true
+                        }
+                        val author = session.data.getValue("test_author")
+                        tests.createTestWithQuestions(title, uid, author, draftQuestions(session, count))
                         ScreenRenderer.persistent()
-                        tests.createTestFull(title, prompt, kind, answer, options)
                         session.action = PendingAction.NONE
                         session.clearDraft()
                         bot.screenText(
                                 chat,
-                                "✅ Тест создан!\n\n📌 $title",
+                                "✅ Тест создан!\n\n📌 $title\nАвтор: $author\nВопросов: $count",
                                 replyMarkup = KeyboardFactory.testsMenu()
                         )
                         return true
@@ -404,6 +499,8 @@ object RouterTests {
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.testsMenu()
                     )
+            QuestionKind.TEXT ->
+                    bot.screenText(chat, header + "\n\nНапиши ответ текстом.", replyMarkup = KeyboardFactory.testsMenu())
             QuestionKind.MATCH ->
                     bot.screenText(
                             chat,
@@ -411,6 +508,8 @@ object RouterTests {
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.testsMenu()
                     )
+            QuestionKind.COLOR ->
+                    bot.screenText(chat, header + "\n\nСоедини цвета: красный=red;синий=blue.", replyMarkup = KeyboardFactory.testsMenu())
         }
     }
 
@@ -428,7 +527,7 @@ object RouterTests {
             data.startsWith("test_search_start_") -> {
                 val testId = data.substringAfter("test_search_start_").toLongOrNull() ?: return
                 val test = tests.getTest(testId)
-                if (test == null) {
+                if (test == null || test.questionCount == 0) {
                     bot.callbackNotice(callback.id, "❌ Тест не найден")
                     return
                 }
@@ -447,9 +546,14 @@ object RouterTests {
             data.startsWith("test_search_page_") -> {
                 val pageIndex = data.substringAfter("test_search_page_").toIntOrNull() ?: return
                 val query = session.data["test_search_query"] ?: return
-                val results = tests.listTests().filter { it.title.contains(query, ignoreCase = true) }
+                val scope = session.data["test_list_scope"] ?: "search"
+                val results = when (scope) {
+                    "mine" -> tests.listTests(uid)
+                    "all" -> tests.listTests().filter { it.questionCount > 0 }
+                    else -> tests.listTests().filter { it.questionCount > 0 && it.title.contains(query, ignoreCase = true) }
+                }
                 if (results.isNotEmpty()) {
-                    showTestSearchResults(bot, chat, uid, results, pageIndex, query)
+                    showTestSearchResults(bot, chat, uid, results, pageIndex, query, scope)
                     bot.callbackNotice(callback.id)
                 }
             }
@@ -475,10 +579,14 @@ object RouterTests {
                 val expected =
                         q.answer.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
                 val got = user.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
-                expected == got
+                expected == got || expected == got.mapNotNull { selected ->
+                    q.options.indexOfFirst { it.equals(selected, ignoreCase = true) }
+                        .takeIf { it >= 0 }?.plus(1)?.toString()
+                }.toSet()
             }
-            QuestionKind.NUMBER -> q.answer.trim() == user
-            QuestionKind.MATCH -> normalizePairs(q.answer) == normalizePairs(answer)
+            QuestionKind.NUMBER -> q.answer.trim().toDoubleOrNull()?.let { it == user.toDoubleOrNull() } ?: false
+            QuestionKind.TEXT -> q.answer.trim().lowercase() == user
+            QuestionKind.MATCH, QuestionKind.COLOR -> normalizePairs(q.answer).takeIf { it.isNotEmpty() } == normalizePairs(answer)
         }
     }
 

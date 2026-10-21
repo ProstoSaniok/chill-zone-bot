@@ -2,12 +2,14 @@ package data.repositories
 
 import data.Db
 import data.models.*
+import java.sql.ResultSet
 
 class TestRepository {
-    fun createTest(title: String, authorId: Long?): Long {
-        return Db.insertId("insert into tests(title, author_id) values (?, ?)") { stmt ->
+    fun createTest(title: String, authorId: Long?, authorName: String? = null): Long {
+        return Db.insertId("insert into tests(title, author_id, author_name) values (?, ?, ?)") { stmt ->
             stmt.setString(1, title)
             if (authorId == null) stmt.setObject(2, null) else stmt.setLong(2, authorId)
+            stmt.setString(3, authorName)
         }
     }
     
@@ -30,20 +32,29 @@ class TestRepository {
         }
     }
 
-    fun listTests(): List<TestSummary> {
-        return Db.query(
-            "select id, title, author_id from tests order by created_at desc",
-            map = { rs ->
-                TestSummary(rs.getLong("id"), rs.getString("title"), rs.getObject("author_id") as? Long)
-            }
-        )
+    private val summarySql = """
+        select t.id, t.title, t.author_id, t.author_name, count(q.id)::integer as question_count
+        from tests t left join test_questions q on q.test_id = t.id
+    """.trimIndent()
+
+    private fun summary(rs: ResultSet): TestSummary {
+        val authorId = rs.getLong("author_id").let { if (rs.wasNull()) null else it }
+        return TestSummary(rs.getLong("id"), rs.getString("title"), authorId,
+            rs.getString("author_name"), rs.getInt("question_count"))
     }
+
+    fun listTests(authorId: Long? = null): List<TestSummary> = Db.query(
+        summarySql + (if (authorId == null) "" else " where t.author_id = ?") +
+            " group by t.id order by t.created_at desc",
+        bind = { if (authorId != null) it.setLong(1, authorId) },
+        map = ::summary
+    )
 
     fun getTest(testId: Long): TestSummary? {
         return Db.single(
-            "select id, title, author_id from tests where id = ?",
+            "$summarySql where t.id = ? group by t.id",
             bind = { stmt -> stmt.setLong(1, testId) },
-            map = { rs -> TestSummary(rs.getLong("id"), rs.getString("title"), rs.getObject("author_id") as? Long) }
+            map = ::summary
         )
     }
 
@@ -67,9 +78,24 @@ class TestRepository {
 
     fun randomTest(): TestSummary? {
         return Db.single(
-            "select id, title, author_id from tests order by random() limit 1",
-            map = { rs -> TestSummary(rs.getLong("id"), rs.getString("title"), rs.getObject("author_id") as? Long) }
+            "$summarySql group by t.id having count(q.id) > 0 order by random() limit 1",
+            map = ::summary
         )
+    }
+
+    fun createTestWithQuestions(title: String, authorId: Long, authorName: String,
+                                questions: List<NewTestQuestion>): Long {
+        require(questions.size in 1..20)
+        val testId = createTest(title, authorId, authorName)
+        try {
+            questions.forEachIndexed { index, question ->
+                addQuestion(testId, index, question.kind, question.prompt, question.options, question.answer)
+            }
+        } catch (failure: Exception) {
+            Db.execute("delete from tests where id = ?") { it.setLong(1, testId) }
+            throw failure
+        }
+        return testId
     }
 
     fun createRun(userId: Long, testId: Long): Long {

@@ -290,6 +290,8 @@ class RouterCore(
                         PendingAction.SEARCH_TESTS,
                         PendingAction.TEST_SEARCH_RESULTS,
                         PendingAction.CREATE_TEST_TITLE,
+                        PendingAction.CREATE_TEST_AUTHOR,
+                        PendingAction.CREATE_TEST_COUNT,
                         PendingAction.CREATE_TEST_KIND,
                         PendingAction.CREATE_TEST_PROMPT,
                         PendingAction.CREATE_TEST_MORE,
@@ -433,7 +435,7 @@ class RouterCore(
             "Оставить отзыв", "Посмотреть поддержку", "💬 Обратная связь" -> RouterFeedBack.handleFeedbackAction(bot, chat, activeUid, text, feedback, users, session)
             "💾 Сохранить" -> handleSaveAction(bot, chat, activeUid, session)
             "➡️ Ещё" -> handleMoreAction(bot, chat, activeUid, session)
-            "Случайный тест", "Создать тест", "Мои тесты", "Поиск тестов" -> {
+            "Случайный тест", "Создать тест", "Пройти тест", "Мои тесты", "Поиск тестов" -> {
                 if (checkUserBan(bot, chat, activeUid, "📝 Тесты")) return
                 RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
             }
@@ -533,7 +535,8 @@ class RouterCore(
             PendingAction.ADD_PREDICTION_TEXT, PendingAction.ADD_PREDICTION_RARITY, PendingAction.SEARCH_PREDICTIONS -> {
                 RouterPredictions.handlePredictionAction(bot, chat, activeUid, text, predictions, users, session)
             }
-            PendingAction.CREATE_TEST_TITLE, PendingAction.CREATE_TEST_KIND, PendingAction.CREATE_TEST_PROMPT, 
+            PendingAction.CREATE_TEST_TITLE, PendingAction.CREATE_TEST_AUTHOR, PendingAction.CREATE_TEST_COUNT,
+            PendingAction.CREATE_TEST_KIND, PendingAction.CREATE_TEST_PROMPT,
             PendingAction.CREATE_TEST_MORE -> {
                 RouterTests.handleTestAction(bot, chat, activeUid, text, tests, users, session)
             }
@@ -673,7 +676,7 @@ class RouterCore(
         "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора",
         "Изменить имя", "Изменить био", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку",
         "🔍 Поиск", "⭐ Избранное", "🎲 Смотреть мемы", "⭐ Избранные мемы", "➕ Добавить мем",
-        "Поиск предсказаний", "Мои предсказания", "Создать тест", "Поиск тестов", "Мои тесты",
+        "Поиск предсказаний", "Мои предсказания", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
         "Создать событие", "Мои события", "Оставить отзыв", "Посмотреть поддержку", "Публичный холст",
         "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи",
         "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага"
