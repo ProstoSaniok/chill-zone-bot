@@ -5,6 +5,7 @@ import data.repositories.FavoriteRepository
 import data.repositories.RecommendationRepository
 import data.repositories.UserRepository
 import data.repositories.FavoriteItem
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -15,8 +16,7 @@ import core.SessionStore
 import core.PendingAction
 import core.Session
 import core.FSMContext
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 object RouterCollectionsFavorites {
     fun showCollectionFavorites(bot: Bot, chat: ChatId, uid: Long, users: UserRepository) {
@@ -34,7 +34,7 @@ object RouterCollectionsFavorites {
 • ⭐️ <b>Избранное</b> - просматривать сохраненные элементы
 
 Выберите действие:"""
-            bot.sendMessage(chat, "У вас пока нет избранных элементов.")
+            bot.screenText(chat, "У вас пока нет избранных элементов.")
             ImageManager.sendMessageWithImage(
                 bot, chat, collectionsMessage, profile,
                 parseMode = ParseMode.HTML,
@@ -58,24 +58,23 @@ object RouterCollectionsFavorites {
         val offset = session.data["collection_offset"]?.toIntOrNull() ?: 0
         
         if (type == null) {
-            bot.sendMessage(chat, "Ошибка: не определен тип контента.", replyMarkup = KeyboardFactory.mainMenu())
+            bot.screenText(chat, "Ошибка: не определен тип контента.", replyMarkup = KeyboardFactory.mainMenu())
             return
         }
         
-        // Вызываем suspend функцию через coroutine scope
-        GlobalScope.launch {
+        runBlocking {
             try {
                 val results = RecommendationRepository.searchMultiple(type, query, 5, offset)
                 if (results.items.isNotEmpty()) {
                     val item = results.items.first()
                     FavoriteRepository.add(uid, item)
-                    bot.sendMessage(chat, "✅ Сохранено в избранное!", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
+                    bot.screenText(chat, "✅ Сохранено в избранное!", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
                 } else {
-                    bot.sendMessage(chat, "Нет элементов для сохранения.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
+                    bot.screenText(chat, "Нет элементов для сохранения.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
                 }
             } catch (e: Exception) {
                 println("Error saving to favorites: ${e.message}")
-                bot.sendMessage(chat, "Ошибка при сохранении.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
+                bot.screenText(chat, "Ошибка при сохранении.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
             }
         }
     }
@@ -107,8 +106,8 @@ object RouterCollectionsFavorites {
         // Reply клавиатура с кнопками навигации для избранного
         val replyKeyboard = KeyboardFactory.favoritesNavKeyboard(index, favorites.size)
         
-        bot.sendMessage(chat, message, replyMarkup = replyKeyboard)
-        bot.sendMessage(chat, "Управление:", replyMarkup = inlineKeyboard)
+        bot.screenText(chat, message, replyMarkup = replyKeyboard)
+        bot.screenText(chat, "", replyMarkup = inlineKeyboard)
     }
 
     private fun getTypeDisplayName(type: RecommendationType): String {

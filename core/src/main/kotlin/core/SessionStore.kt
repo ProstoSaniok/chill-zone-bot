@@ -18,6 +18,8 @@ enum class PendingAction {
     CREATE_TEST_PROMPT,
     CREATE_TEST_MORE,
     PLAY_TEST,
+    SEARCH_TESTS,
+    TEST_SEARCH_RESULTS,
     CREATE_EVENT_TITLE,
     CREATE_EVENT_DESC,
     CREATE_EVENT_PLACE,
@@ -51,14 +53,37 @@ data class Session(
     var action: PendingAction = PendingAction.NONE,
     val data: MutableMap<String, String> = mutableMapOf(),
     var context: FSMContext = FSMContext.MEMES  // По умолчанию контекст мемов
-)
+) {
+    fun clearDraft() {
+        val account = data["profile_impersonated_user_id"]
+        data.clear()
+        account?.let { data["profile_impersonated_user_id"] = it }
+    }
+}
 
 object SessionStore {
-    private val sessions = mutableMapOf<Long, Session>()
+    private val sessions = java.util.concurrent.ConcurrentHashMap<Pair<Long, Long>, Session>()
+    private val owner = ThreadLocal<Pair<Long, Long>?>()
 
-    fun get(chatId: Long): Session = sessions.getOrPut(chatId) { Session() }
+    fun get(chatId: Long): Session = sessions.computeIfAbsent(owner.get() ?: (chatId to chatId)) { Session() }
 
     fun clear(chatId: Long) {
-        sessions.remove(chatId)
+        // Keep the same object: routers may still hold it during this update.
+        val session = get(chatId)
+        val account = session.data["profile_impersonated_user_id"]
+        session.action = PendingAction.NONE
+        session.context = FSMContext.MEMES
+        session.data.clear()
+        account?.let { session.data["profile_impersonated_user_id"] = it }
+    }
+
+    fun <T> withOwner(chatId: Long, actorId: Long, block: () -> T): T {
+        val previous = owner.get()
+        owner.set(chatId to actorId)
+        try {
+            return block()
+        } finally {
+            owner.set(previous)
+        }
     }
 }

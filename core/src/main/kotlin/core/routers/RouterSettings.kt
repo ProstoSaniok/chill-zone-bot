@@ -2,6 +2,7 @@ package core.routers
 
 import data.models.*
 import data.repositories.UserRepository
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -16,18 +17,13 @@ object RouterSettings {
             "⚙️ Настройки" -> {
                 val profile = users.profile(uid)
                 val settingsMessage = "Настройки."
-                bot.sendMessage(chat, settingsMessage, replyMarkup = KeyboardFactory.settingsMenu(profile))
+                bot.screenText(chat, settingsMessage, replyMarkup = KeyboardFactory.settingsMenu(profile))
                 return true
             }
             "Включить картинки [✅]", "Выключить картинки [❌]" -> {
                 val enabled = users.toggleMedia(uid)
                 val profile = users.profile(uid)
-                val resultMessage = if (enabled) "Картинки включены." else "Картинки выключены."
-                bot.sendMessage(chat, resultMessage)
-                val settingsMessage = "Настройки."
-                ImageManager.sendMessageWithImage(bot, chat, settingsMessage, profile) {
-                    // Клавиатура отправляется через ImageManager
-                }
+                bot.screenText(chat, "Настройки.", replyMarkup = KeyboardFactory.settingsMenu(profile))
                 return true
             }
             "⬅️ Обратно" -> {

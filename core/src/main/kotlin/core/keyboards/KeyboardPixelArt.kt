@@ -1,21 +1,16 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
+import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 
 object KeyboardPixelArt {
-    fun pixelMenu(): KeyboardReplyMarkup = kb(
+    fun pixelMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("Публичный холст"),
             listOf("⬅️ Обратно")
         )
     )
 
-    private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-        return KeyboardReplyMarkup(
-            keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-            resizeKeyboard = true,
-            oneTimeKeyboard = false
-        )
+    private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+        return core.ui.UiKeyboard.rows(rows)
     }
 }

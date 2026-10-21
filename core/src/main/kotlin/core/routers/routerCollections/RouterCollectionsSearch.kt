@@ -4,6 +4,7 @@ import data.*
 import data.models.*
 import data.repositories.FavoriteRepository
 import data.repositories.RecommendationRepository
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -45,8 +46,8 @@ object RouterCollectionsSearch {
         val inlineKeyboard = KeyboardCollections.singleSearchResultKeyboard(item, index, items.size, isSaved)
         val replyKeyboard = KeyboardCollections.searchResultNavKeyboard(hasMore)
         
-        bot.sendMessage(chat, message, parseMode = ParseMode.HTML, replyMarkup = replyKeyboard)
-        bot.sendMessage(chat, "Управление:", replyMarkup = inlineKeyboard)
+        bot.screenText(chat, message, parseMode = ParseMode.HTML, replyMarkup = replyKeyboard)
+        bot.screenText(chat, "", replyMarkup = inlineKeyboard)
     }
 
     fun getTypeDisplayName(type: RecommendationType): String {

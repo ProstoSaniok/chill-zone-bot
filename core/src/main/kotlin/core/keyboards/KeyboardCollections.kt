@@ -1,34 +1,32 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import data.repositories.FavoriteItem
 import data.models.RecommendationItem
 
 object KeyboardCollections {
-    fun collectionsMenu(): KeyboardReplyMarkup = kb(
+    fun collectionsMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("🔍 Поиск", "⭐ Избранное"),
             listOf("⬅️ Обратно")
         )
     )
 
-    fun searchTypeMenu(): KeyboardReplyMarkup = kb(
+    fun searchTypeMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("🎬 Фильм", "📺 Сериал", "📚 Книга", "🎮 Игра"),
             listOf("⬅️ Обратно")
         )
     )
 
-    fun searchResultsMenu(hasMore: Boolean = false): KeyboardReplyMarkup = kb(
+    fun searchResultsMenu(hasMore: Boolean = false): InlineKeyboardMarkup = kb(
         listOf(
             if (hasMore) listOf("➡️ Ещё", "⬅️ Обратно") else listOf("⬅️ Обратно")
         )
     )
 
-    fun searchResultsMenuWithInline(itemsCount: Int, hasMore: Boolean = false): KeyboardReplyMarkup {
+    fun searchResultsMenuWithInline(itemsCount: Int, hasMore: Boolean = false): InlineKeyboardMarkup {
         val rows = mutableListOf<List<String>>()
         
         // Добавляем навигационные кнопки в reply клавиатуру
@@ -96,7 +94,7 @@ object KeyboardCollections {
         return InlineKeyboardMarkup.create(rows)
     }
 
-    fun searchResultNavKeyboard(hasMore: Boolean = false): KeyboardReplyMarkup {
+    fun searchResultNavKeyboard(hasMore: Boolean = false): InlineKeyboardMarkup {
         // Кнопки навигации в reply клавиатуре
         val rows = mutableListOf<List<String>>()
         
@@ -156,20 +154,16 @@ object KeyboardCollections {
         return InlineKeyboardMarkup.create(rows)
     }
 
-    fun favoritesNavKeyboard(currentIndex: Int, totalCount: Int): KeyboardReplyMarkup {
+    fun favoritesNavKeyboard(currentIndex: Int, totalCount: Int): InlineKeyboardMarkup {
         // Только кнопка "Обратно", стрелки уже есть в inline клавиатуре
         return kb(listOf(listOf("⬅️ Обратно")))
     }
 
-    fun singleFavoriteNav(): KeyboardReplyMarkup {
+    fun singleFavoriteNav(): InlineKeyboardMarkup {
         return kb(listOf(listOf("⬅️ Обратно")))
     }
 
-    private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-        return KeyboardReplyMarkup(
-            keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-            resizeKeyboard = true,
-            oneTimeKeyboard = false
-        )
+    private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+        return core.ui.UiKeyboard.rows(rows)
     }
 }

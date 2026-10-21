@@ -1,5 +1,6 @@
 package core.routers
 
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -29,15 +30,8 @@ object RouterFeedBack {
                 ImageManager.sendMessageWithImage(
                         bot,
                         chat,
-                        "Если что-то сломалось, просто напиши сюда отзыв — он сохранится в PostgreSQL.",
-                        profile
-                ) {
-                    bot.sendMessage(
-                            chat,
-                            "Поддержка:",
-                            replyMarkup = KeyboardFactory.feedbackMenu()
-                    )
-                }
+                        "Есть вопрос или предложение? Нажми «Оставить отзыв» и напиши нам.",
+                        profile, replyMarkup = KeyboardFactory.feedbackMenu())
                 return true
             }
             "Оставить отзыв" -> {
@@ -47,14 +41,7 @@ object RouterFeedBack {
                         bot,
                         chat,
                         "Напиши отзыв одним сообщением.",
-                        profile
-                ) {
-                    bot.sendMessage(
-                            chat,
-                            "Ожидаю отзыв:",
-                            replyMarkup = KeyboardFactory.feedbackMenu()
-                    )
-                }
+                        profile, replyMarkup = KeyboardFactory.feedbackMenu())
                 return true
             }
             "Посмотреть поддержку" -> {
@@ -62,21 +49,14 @@ object RouterFeedBack {
                 ImageManager.sendMessageWithImage(
                         bot,
                         chat,
-                        "Если что-то сломалось, просто напиши сюда отзыв — он сохранится в PostgreSQL.",
-                        profile
-                ) {
-                    bot.sendMessage(
-                            chat,
-                            "Поддержка:",
-                            replyMarkup = KeyboardFactory.feedbackMenu()
-                    )
-                }
+                        "Есть вопрос или предложение? Нажми «Оставить отзыв» и напиши нам.",
+                        profile, replyMarkup = KeyboardFactory.feedbackMenu())
                 return true
             }
             "⬅️ Обратно" -> {
                 // Возврат в главное меню
                 SessionStore.clear(uid)
-                bot.sendMessage(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
+                bot.screenText(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
                 return true
             }
             else -> {
@@ -89,13 +69,13 @@ object RouterFeedBack {
                                     "Использование ненормативной лексики"
                             )
                             ModerationService.clearWarnings(uid)
-                            bot.sendMessage(
+                            bot.screenText(
                                     chat,
                                     "🚫 Вы были заблокированы за использование ненормативной лексики."
                             )
                         } else {
                             ModerationService.addWarning(uid)
-                            bot.sendMessage(
+                            bot.screenText(
                                     chat,
                                     "⚠️ <b>Предупреждение!</b>\n\nВаше сообщение содержит недопустимый контент.\n\nПовторное нарушение приведёт к автоматическому бану на 1 сутки.",
                                     parseMode = ParseMode.HTML
@@ -104,9 +84,10 @@ object RouterFeedBack {
                         session.action = PendingAction.NONE
                         return true
                     }
+                    ScreenRenderer.persistent()
                     feedback.save(uid, "", scope = "general", text = text)
                     session.action = PendingAction.NONE
-                    bot.sendMessage(
+                    bot.screenText(
                             chat,
                             "✅ Спасибо за отзыв!",
                             replyMarkup = KeyboardFactory.feedbackMenu()

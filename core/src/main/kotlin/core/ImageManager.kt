@@ -4,98 +4,23 @@ import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.ReplyMarkup
+import core.ui.screenPhoto
+import core.ui.screenText
 import data.models.UserProfile
 
-/**
- * Управление изображениями для сообщений бота
- */
+/** Optional screen artwork. Only real Telegram file IDs should be registered. */
 object ImageManager {
-    
-    // Соответствия сообщений и путей к изображениям
-    // В реальном проекте здесь будут file_id изображений, загруженных в Telegram
-    private val messageImages = mapOf(
-        "Привет! Это Chill Zone Bot — всё для досуга в одном месте." to "welcome_image",
-        "Главное меню." to "main_menu_image", 
-        "Настройки." to "settings_image",
-        "Раздел мемов." to "memes_image",
-        "Раздел предсказаний." to "predictions_image",
-        "Раздел тестов." to "tests_image",
-        "Раздел событий." to "events_image",
-        "Мини-игры." to "games_image",
-        "Пиксель-арт пока доступен как отдельный веб-модуль, но раздел уже предусмотрен в меню." to "pixel_art_image",
-        "Раздел поддержки." to "feedback_image",
-        "Выбери тип подборки." to "collections_image"
-    )
-    
-    // Временные заглушки для file_id - в реальном проекте нужно загрузить изображения в Telegram
-    private val imageFileIds = mapOf(
-        "welcome_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample1", // заглушка
-        "main_menu_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample2", // заглушка
-        "settings_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample3", // заглушка
-        "memes_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample4", // заглушка
-        "predictions_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample5", // заглушка
-        "tests_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample6", // заглушка
-        "events_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample7", // заглушка
-        "games_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample8", // заглушка
-        "pixel_art_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample9", // заглушка
-        "feedback_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample10", // заглушка
-        "collections_image" to "AgACAgQAAxkBAAMWZq5BvZ7X8Yexample11" // заглушка
-    )
-    
-    /**
-     * Отправляет сообщение с изображением, если у пользователя включены картинки
-     * @param bot экземпляр бота
-     * @param chat ID чата
-     * @param message текст сообщения
-     * @param userProfile профиль пользователя для проверки настроек
-     * @param replyMarkup клавиатура для сообщения
-     * @param parseMode режим парсинга HTML
-     * @param onMessageSent callback для отправки текстового сообщения
-     */
+    private val images = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     fun sendMessageWithImage(
-        bot: Bot,
-        chat: ChatId,
-        message: String,
-        userProfile: UserProfile?,
-        replyMarkup: ReplyMarkup? = null,
-        parseMode: ParseMode? = null,
-        onMessageSent: () -> Unit = {}
+        bot: Bot, chat: ChatId, message: String, userProfile: UserProfile?,
+        replyMarkup: ReplyMarkup? = null, parseMode: ParseMode? = null,
+        screenId: String? = null
     ) {
-        val shouldSendImage = userProfile?.showMedia ?: true
-        
-        if (shouldSendImage) {
-            val imageKey = messageImages[message]
-            val fileId = imageKey?.let { imageFileIds[it] }
-            
-            if (fileId != null) {
-                // Отправляем изображение
-                @Suppress("DEPRECATION")
-                run {
-                    bot.sendPhoto(chat, fileId, caption = message, parseMode = parseMode, replyMarkup = replyMarkup)
-                }
-            } else {
-                // Если нет соответствующего изображения, отправляем только текст
-                bot.sendMessage(chat, message, parseMode = parseMode, replyMarkup = replyMarkup)
-            }
-        } else {
-            // Если у пользователя отключены картинки, отправляем только текст
-            bot.sendMessage(chat, message, parseMode = parseMode, replyMarkup = replyMarkup)
-        }
-        
-        onMessageSent()
+        val fileId = screenId?.let(images::get)?.takeIf { userProfile?.showMedia != false }
+        if (fileId != null) bot.screenPhoto(chat, fileId, message, parseMode, replyMarkup)
+        else bot.screenText(chat, message, parseMode, replyMarkup)
     }
-    
-    /**
-     * Проверяет, есть ли изображение для данного сообщения
-     */
-    fun hasImage(message: String): Boolean {
-        return messageImages.containsKey(message)
-    }
-    
-    /**
-     * Добавляет новое соответствие сообщения и изображения
-     */
-    fun addMessageImage(message: String, imageKey: String, fileId: String) {
-        // Для расширения системы в будущем
-    }
+
+    fun register(screenId: String, fileId: String) { images[screenId] = fileId }
 }

@@ -1,7 +1,6 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
+import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import data.models.UserProfile
 import data.services.AdminService
 
@@ -9,7 +8,7 @@ object KeyboardProfile {
         fun profileMenu(
                         userProfile: UserProfile? = null,
                         accountSwitchLabel: String? = null
-        ): KeyboardReplyMarkup {
+        ): InlineKeyboardMarkup {
                 val accountType = userProfile?.accountType
                 val panelLabel = when (accountType) {
                         data.models.AccountType.ADMIN -> "🛡️ Админ панель"
@@ -34,7 +33,7 @@ object KeyboardProfile {
         return kb(rows)
     }
 
-    fun editProfileMenu(userProfile: UserProfile? = null): KeyboardReplyMarkup {
+    fun editProfileMenu(userProfile: UserProfile? = null): InlineKeyboardMarkup {
         val profileHidden = userProfile?.hidden ?: false
         val usernameHidden = userProfile?.hideUsername ?: false
         val hasAvatar = userProfile?.avatarFileId != null
@@ -54,7 +53,7 @@ object KeyboardProfile {
         )
     }
 
-        fun moderatorUserViewMenu(isBanned: Boolean): KeyboardReplyMarkup {
+        fun moderatorUserViewMenu(isBanned: Boolean): InlineKeyboardMarkup {
                 return kb(
                                 listOf(
                                                 listOf(if (isBanned) "✅ Разбанить" else "🚫 Забанить"),
@@ -63,7 +62,7 @@ object KeyboardProfile {
                 )
         }
 
-    fun settingsMenu(userProfile: UserProfile? = null): KeyboardReplyMarkup {
+    fun settingsMenu(userProfile: UserProfile? = null): InlineKeyboardMarkup {
         val mediaEnabled = userProfile?.showMedia ?: true
 
         return kb(
@@ -77,11 +76,11 @@ object KeyboardProfile {
         )
     }
 
-    fun statsMenu(): KeyboardReplyMarkup {
+    fun statsMenu(): InlineKeyboardMarkup {
         return kb(listOf(listOf("⬅️ Обратно")))
     }
 
-    fun avatarProcessingMenu(minSize: Int): KeyboardReplyMarkup {
+    fun avatarProcessingMenu(minSize: Int): InlineKeyboardMarkup {
         return kb(
                 listOf(
                         listOf(
@@ -93,11 +92,7 @@ object KeyboardProfile {
         )
     }
 
-    private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-        return KeyboardReplyMarkup(
-                keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-                resizeKeyboard = true,
-                oneTimeKeyboard = false
-        )
+    private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+        return core.ui.UiKeyboard.rows(rows)
     }
 }

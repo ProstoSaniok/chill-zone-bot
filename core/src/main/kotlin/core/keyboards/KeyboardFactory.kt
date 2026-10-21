@@ -1,24 +1,18 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import data.models.UserProfile
 import data.repositories.FavoriteItem
 
 // Вспомогательная функция для создания клавиатур
-private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-    return KeyboardReplyMarkup(
-        keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-        resizeKeyboard = true,
-        oneTimeKeyboard = false
-    )
+private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+    return core.ui.UiKeyboard.rows(rows)
 }
 
 object KeyboardFactory {
     // Системные клавиатуры (основные меню)
-    fun mainMenu(isAdmin: Boolean = false): KeyboardReplyMarkup = kb(
+    fun mainMenu(isAdmin: Boolean = false): InlineKeyboardMarkup = kb(
         listOf(
             listOf("👤 Профиль", "🗂 Подборки"),
             listOf("😂 Мемы", "🔮 Предсказания"),
@@ -32,27 +26,27 @@ object KeyboardFactory {
     fun profileMenu(
             userProfile: UserProfile? = null,
             accountSwitchLabel: String? = null
-    ): KeyboardReplyMarkup {
+    ): InlineKeyboardMarkup {
         return KeyboardProfile.profileMenu(userProfile, accountSwitchLabel)
     }
 
-    fun settingsMenu(userProfile: UserProfile? = null): KeyboardReplyMarkup {
+    fun settingsMenu(userProfile: UserProfile? = null): InlineKeyboardMarkup {
         return KeyboardProfile.settingsMenu(userProfile)
     }
 
-    fun memesMenu(): KeyboardReplyMarkup {
+    fun memesMenu(): InlineKeyboardMarkup {
         return KeyboardMemes.memesMenu()
     }
 
-    fun memesViewerMenu(): KeyboardReplyMarkup {
+    fun memesViewerMenu(): InlineKeyboardMarkup {
         return KeyboardMemes.memesViewerMenu()
     }
 
-    fun memesAddMenu(): KeyboardReplyMarkup {
+    fun memesAddMenu(): InlineKeyboardMarkup {
         return KeyboardMemes.memesAddMenu()
     }
 
-    fun memesFavoritesMenu(): KeyboardReplyMarkup {
+    fun memesFavoritesMenu(): InlineKeyboardMarkup {
         return KeyboardMemes.memesFavoritesMenu()
     }
 
@@ -60,55 +54,55 @@ object KeyboardFactory {
         return KeyboardMemes.memeActionsInline(memeId)
     }
 
-    fun predictionsMenu(): KeyboardReplyMarkup {
+    fun predictionsMenu(): InlineKeyboardMarkup {
         return KeyboardPredictions.predictionsMenu()
     }
 
-    fun predictionProcessMenu(): KeyboardReplyMarkup {
+    fun predictionProcessMenu(): InlineKeyboardMarkup {
         return KeyboardPredictions.predictionProcessMenu()
     }
 
-    fun predictionRarity(): KeyboardReplyMarkup {
+    fun predictionRarity(): InlineKeyboardMarkup {
         return KeyboardPredictions.predictionRarity()
     }
 
-    fun testsMenu(): KeyboardReplyMarkup {
+    fun testsMenu(): InlineKeyboardMarkup {
         return KeyboardTests.testsMenu()
     }
 
-    fun testKinds(): KeyboardReplyMarkup {
+    fun testKinds(): InlineKeyboardMarkup {
         return KeyboardTests.testKinds()
     }
 
-    fun testsContinue(): KeyboardReplyMarkup {
+    fun testsContinue(): InlineKeyboardMarkup {
         return KeyboardTests.testsContinue()
     }
 
-    fun eventsMenu(): KeyboardReplyMarkup {
+    fun eventsMenu(): InlineKeyboardMarkup {
         return KeyboardEvents.eventsMenu()
     }
 
-    fun gamesMenu(): KeyboardReplyMarkup {
+    fun gamesMenu(): InlineKeyboardMarkup {
         return KeyboardGames.gamesMenu()
     }
 
-    fun collectionsMenu(): KeyboardReplyMarkup {
+    fun collectionsMenu(): InlineKeyboardMarkup {
         return KeyboardCollections.collectionsMenu()
     }
 
-    fun searchTypeMenu(): KeyboardReplyMarkup {
+    fun searchTypeMenu(): InlineKeyboardMarkup {
         return KeyboardCollections.searchTypeMenu()
     }
 
-    fun searchResultsMenu(hasMore: Boolean = false): KeyboardReplyMarkup {
+    fun searchResultsMenu(hasMore: Boolean = false): InlineKeyboardMarkup {
         return KeyboardCollections.searchResultsMenu(hasMore)
     }
 
-    fun feedbackMenu(): KeyboardReplyMarkup {
+    fun feedbackMenu(): InlineKeyboardMarkup {
         return KeyboardFeedBack.feedbackMenu()
     }
 
-    fun pixelMenu(): KeyboardReplyMarkup {
+    fun pixelMenu(): InlineKeyboardMarkup {
         return KeyboardPixelArt.pixelMenu()
     }
 
@@ -117,7 +111,7 @@ object KeyboardFactory {
         return KeyboardCollections.searchResultsInlineKeyboard(itemsCount)
     }
 
-    fun searchResultsMenuWithInline(itemsCount: Int, hasMore: Boolean = false): KeyboardReplyMarkup {
+    fun searchResultsMenuWithInline(itemsCount: Int, hasMore: Boolean = false): InlineKeyboardMarkup {
         return KeyboardCollections.searchResultsMenuWithInline(itemsCount, hasMore)
     }
 
@@ -129,11 +123,11 @@ object KeyboardFactory {
         return KeyboardCollections.singleFavoriteDeleteKeyboard(favorite, currentIndex, totalCount)
     }
 
-    fun favoritesNavKeyboard(currentIndex: Int, totalCount: Int): KeyboardReplyMarkup {
+    fun favoritesNavKeyboard(currentIndex: Int, totalCount: Int): InlineKeyboardMarkup {
         return KeyboardCollections.favoritesNavKeyboard(currentIndex, totalCount)
     }
 
-    fun singleFavoriteNav(): KeyboardReplyMarkup {
+    fun singleFavoriteNav(): InlineKeyboardMarkup {
         return KeyboardCollections.singleFavoriteNav()
     }
 }

@@ -4,6 +4,7 @@ import data.models.*
 import data.repositories.RecommendationRepository
 import data.repositories.FavoriteRepository
 import data.repositories.UserRepository
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -14,8 +15,7 @@ import core.SessionStore
 import core.FSMContext
 import core.PendingAction
 import core.Session
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import com.github.kotlintelegrambot.entities.CallbackQuery
 import core.routers.routerCollections.RouterCollectionsFavorites
 import core.routers.routerCollections.RouterCollectionsSearch
@@ -26,7 +26,8 @@ object RouterCollections {
             "🗂 Подборки" -> {
                 session.action = PendingAction.NONE
                 session.context = FSMContext.COLLECTIONS
-                session.data.clear()
+                session.clearDraft()
+                session.data["last_menu"] = "collections"
                 val profile = users.profile(uid)
                 val collectionsMessage = """🔍 <b>Меню подборок</b>
 
@@ -41,12 +42,13 @@ object RouterCollections {
             "🔍 Поиск" -> {
                 session.action = PendingAction.SEARCH_TYPE_SELECT
                 session.context = FSMContext.COLLECTIONS
-                session.data.clear()
+                session.clearDraft()
+                session.data["last_menu"] = "collections"
                 val profile = users.profile(uid)
                 val searchTypeMessage = """🔍 <b>Выберите тип поиска</b>
 
 Выберите категорию для поиска:"""
-                bot.sendMessage(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
+                bot.screenText(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
                 return true
             }
             "⭐ Избранное" -> {
@@ -86,11 +88,11 @@ object RouterCollections {
                 session.action = PendingAction.COLLECTION_RESULTS
                 
                 // Вызываем suspend функцию через coroutine scope
-                GlobalScope.launch {
+                runBlocking {
                     val result = RecommendationRepository.searchMultiple(type, query, 3, offset = offset)
                     
                     if (result.items.isEmpty()) {
-                        bot.sendMessage(chat, "Других вариантов не нашёл.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
+                        bot.screenText(chat, "Других вариантов не нашёл.", replyMarkup = KeyboardCollections.searchResultNavKeyboard(false))
                     } else {
                         // Получаем текущие результаты из сессии
                         val currentResultsData = session.data["search_results"] ?: ""
@@ -116,7 +118,7 @@ object RouterCollections {
                             "Все результаты: ${currentCount} из ${totalCount}"
                         }
                         
-                        bot.sendMessage(chat, "$resultHeader\n\nИспользуйте стрелочки для навигации:", parseMode = ParseMode.HTML)
+                        bot.screenText(chat, "$resultHeader\n\nИспользуйте стрелочки для навигации:", parseMode = ParseMode.HTML)
                         
                         // Обновляем данные в сессии
                         session.data["search_results"] = allResults.joinToString("|") { "${it.id}:${it.type.name}" }
@@ -152,7 +154,7 @@ object RouterCollections {
                     val searchTypeMessage = """🔍 <b>Выберите тип поиска</b>
 
 Выберите категорию для поиска:"""
-                    bot.sendMessage(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
+                    bot.screenText(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
                     return true
                 }
             }
@@ -196,6 +198,7 @@ object RouterCollections {
                         // Возврат из избранного в меню подборок
                         session.action = PendingAction.NONE
                         session.context = FSMContext.COLLECTIONS
+                        session.data["last_menu"] = "collections"
                         val profile = users.profile(uid)
                         val collectionsMessage = """🔍 <b>Меню подборок</b>
 
@@ -208,29 +211,42 @@ object RouterCollections {
                         return true
                     }
                     PendingAction.COLLECTION_QUERY -> {
-                        // Возврат из ввода запроса в меню выбора типа поиска
-                        session.action = PendingAction.SEARCH_TYPE_SELECT
+                        // Возврат из ввода запроса в главное меню
+                        session.action = PendingAction.NONE
+                        session.context = FSMContext.MEMES
+                        session.clearDraft()
                         val profile = users.profile(uid)
-                        val searchTypeMessage = """🔍 <b>Выберите тип поиска</b>
+                        val collectionsMessage = """🔍 <b>Меню подборок</b>
 
-Выберите категорию для поиска:"""
-                        bot.sendMessage(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
+Здесь вы можете:
+• 🔍 <b>Поиск</b> - находить фильмы, сериалы, книги и игры по запросу
+• ⭐️ <b>Избранное</b> - просматривать сохраненные элементы
+
+Выберите действие:"""
+                        ImageManager.sendMessageWithImage(bot, chat, collectionsMessage, profile, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.collectionsMenu())
                         return true
                     }
                     PendingAction.COLLECTION_RESULTS -> {
-                        // Возврат из результатов поиска в меню выбора типа поиска
-                        session.action = PendingAction.SEARCH_TYPE_SELECT
+                        // Возврат из результатов поиска в главное меню
+                        session.action = PendingAction.NONE
+                        session.context = FSMContext.MEMES
+                        session.clearDraft()
                         val profile = users.profile(uid)
-                        val searchTypeMessage = """🔍 <b>Выберите тип поиска</b>
+                        val collectionsMessage = """🔍 <b>Меню подборок</b>
 
-Выберите категорию для поиска:"""
-                        bot.sendMessage(chat, searchTypeMessage, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.searchTypeMenu())
+Здесь вы можете:
+• 🔍 <b>Поиск</b> - находить фильмы, сериалы, книги и игры по запросу
+• ⭐️ <b>Избранное</b> - просматривать сохраненные элементы
+
+Выберите действие:"""
+                        ImageManager.sendMessageWithImage(bot, chat, collectionsMessage, profile, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.collectionsMenu())
                         return true
                     }
                     PendingAction.SEARCH_TYPE_SELECT -> {
-                        // Возврат из меню выбора типа поиска в меню подборок
+                        // Возврат из меню выбора типа поиска в главное меню
                         session.action = PendingAction.NONE
                         session.context = FSMContext.COLLECTIONS
+                        session.clearDraft()
                         val profile = users.profile(uid)
                         val collectionsMessage = """🔍 <b>Меню подборок</b>
 
@@ -243,17 +259,13 @@ object RouterCollections {
                         return true
                     }
                     else -> {
-                        // Для всех остальных случаев - главное меню подборок
+                        // Для всех остальных случаев - главное меню
                         session.action = PendingAction.NONE
+                        session.context = FSMContext.MEMES
+                        session.clearDraft()
                         val profile = users.profile(uid)
-                        val collectionsMessage = """🔍 <b>Меню подборок</b>
-
-Здесь вы можете:
-• 🔍 <b>Поиск</b> - находить фильмы, сериалы, книги и игры по запросу
-• ⭐️ <b>Избранное</b> - просматривать сохраненные элементы
-
-Выберите действие:"""
-                        ImageManager.sendMessageWithImage(bot, chat, collectionsMessage, profile, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.collectionsMenu())
+                        val collectionsMessage = "Главное меню."
+                        ImageManager.sendMessageWithImage(bot, chat, collectionsMessage, profile, parseMode = ParseMode.HTML, replyMarkup = KeyboardFactory.mainMenu())
                         return true
                     }
                 }
@@ -272,13 +284,13 @@ object RouterCollections {
                         session.data["collection_offset"] = "0"
                         session.action = PendingAction.COLLECTION_RESULTS
                         
-                        GlobalScope.launch {
+                        runBlocking {
                             try {
                                 val result = RecommendationRepository.searchMultiple(type, query, 3, offset = 0)
                                 
                                 if (result.items.isEmpty()) {
                                     session.action = PendingAction.SEARCH_TYPE_SELECT
-                                    bot.sendMessage(chat, "Ничего не найдено по запросу \"$query\".", replyMarkup = KeyboardFactory.searchTypeMenu())
+                                    bot.screenText(chat, "Ничего не найдено по запросу \"$query\".", replyMarkup = KeyboardFactory.searchTypeMenu())
                                 } else {
                                     // Сохраняем все результаты в сессию для навигации
                                     session.data["search_results"] = result.items.joinToString("|") { "${it.id}:${it.type.name}" }
@@ -295,14 +307,14 @@ object RouterCollections {
                                         "Найдено ${currentCount} результатов по запросу \"$query\":"
                                     }
                                     
-                                    bot.sendMessage(chat, "$resultHeader\n\nИспользуйте стрелочки для навигации:", parseMode = ParseMode.HTML)
+                                    bot.screenText(chat, "$resultHeader\n\nИспользуйте стрелочки для навигации:", parseMode = ParseMode.HTML)
 
                                     // Показываем первый результат
                                     RouterCollectionsSearch.showSingleSearchResult(bot, chat, uid, result.items, 0, result.hasMore)
                                 }
                             } catch (e: Exception) {
                                 println("Error searching: ${e.message}")
-                                bot.sendMessage(chat, "Ошибка при поиске.", replyMarkup = KeyboardFactory.collectionsMenu())
+                                bot.screenText(chat, "Ошибка при поиске.", replyMarkup = KeyboardFactory.collectionsMenu())
                             }
                         }
                         return true
@@ -315,7 +327,7 @@ object RouterCollections {
 
     fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository) {
         val chat = ChatId.fromId(callback.message!!.chat.id)
-        val uid = callback.from.id
+        val uid = SessionStore.get(callback.from.id).data["profile_impersonated_user_id"]?.toLongOrNull() ?: callback.from.id
         val session = SessionStore.get(uid)
         val data = callback.data ?: return
 
@@ -323,16 +335,15 @@ object RouterCollections {
             data.startsWith("save_item_") -> {
                 val itemNumber = data.substringAfter("save_item_").toIntOrNull() ?: return
                 val type = session.data["collection_type"]?.let { RecommendationType.valueOf(it) }
-                val query = session.data["collection_query"]
-                return
+                val query = session.data["collection_query"] ?: return
                 val offset = session.data["collection_offset"]?.toIntOrNull() ?: 0
                 
                 if (type == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: не определен тип контента.")
+                    bot.callbackNotice(callback.id, "Ошибка: не определен тип контента.")
                     return
                 }
                 
-                GlobalScope.launch {
+                runBlocking {
                     try {
                         val results = RecommendationRepository.searchMultiple(type, query, 3, offset)
                         val itemIndex = itemNumber - 1
@@ -343,19 +354,19 @@ object RouterCollections {
                             val isAlreadyFavorite = FavoriteRepository.isFavorite(uid, item.id, item.type)
                             
                             if (isAlreadyFavorite) {
-                                bot.answerCallbackQuery(callback.id, "Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
-                                bot.sendMessage(chat, "⚠️ Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
+                                bot.callbackNotice(callback.id, "Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
+
                             } else {
                                 FavoriteRepository.add(uid, item)
-                                bot.answerCallbackQuery(callback.id, "В избранные добавлен №$itemNumber")
-                                bot.sendMessage(chat, "✅ В избранные добавлен №$itemNumber")
+                                bot.callbackNotice(callback.id, "В избранные добавлен №$itemNumber")
+                                RouterCollectionsSearch.showSingleSearchResult(bot, chat, uid, results.items, itemIndex, results.hasMore)
                             }
                         } else {
-                            bot.answerCallbackQuery(callback.id, "Ошибка: элемент не найден.")
+                            bot.callbackNotice(callback.id, "Ошибка: элемент не найден.")
                         }
                     } catch (e: Exception) {
                         println("Error saving item to favorites: ${e.message}")
-                        bot.answerCallbackQuery(callback.id, "Ошибка при сохранении.")
+                        bot.callbackNotice(callback.id, "Ошибка при сохранении.")
                     }
                 }
             }
@@ -363,7 +374,7 @@ object RouterCollections {
             data.startsWith("nav_search_") -> {
                 val newIndex = data.substringAfter("nav_search_").toIntOrNull()
                 if (newIndex == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный индекс.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный индекс.")
                     return
                 }
                 
@@ -373,30 +384,30 @@ object RouterCollections {
                 val query = session.data["search_query"]
                 
                 if (resultsString != null && type != null && query != null) {
-                    GlobalScope.launch {
+                    runBlocking {
                         try {
                             // Получаем все результаты заново для навигации (с большим лимитом)
                             val allResults = RecommendationRepository.searchMultiple(type, query, 20, offset = 0).items
-                            if (newIndex < allResults.size) {
+                            if (newIndex in allResults.indices) {
                                 session.data["search_current_index"] = newIndex.toString()
                                 RouterCollectionsSearch.showSingleSearchResult(bot, chat, uid, allResults, newIndex, false)
                             }
                         } catch (e: Exception) {
                             println("Error navigating search results: ${e.message}")
-                            bot.answerCallbackQuery(callback.id, "Ошибка при навигации.")
+                            bot.callbackNotice(callback.id, "Ошибка при навигации.")
                         }
                     }
                 } else {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: данные поиска не найдены.")
+                    bot.callbackNotice(callback.id, "Ошибка: данные поиска не найдены.")
                 }
                 
-                bot.answerCallbackQuery(callback.id)
+                bot.callbackNotice(callback.id)
             }
             
             data.startsWith("save_single_") -> {
                 val parts = data.substringAfter("save_single_").split("_")
                 if (parts.size != 2) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный формат данных.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный формат данных.")
                     return
                 }
                 
@@ -404,7 +415,7 @@ object RouterCollections {
                 val itemTypeName = parts[1]
                 
                 if (itemId == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный ID элемента.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный ID элемента.")
                     return
                 }
                 
@@ -414,7 +425,7 @@ object RouterCollections {
                     val query = session.data["search_query"]
                     
                     if (type != null && query != null) {
-                        GlobalScope.launch {
+                        runBlocking {
                             try {
                                 val result = RecommendationRepository.searchMultiple(type, query, 20, offset = 0)
                                 val item = result.items.find { it.id == itemId && it.type == itemType }
@@ -423,32 +434,33 @@ object RouterCollections {
                                     val isAlreadyFavorite = FavoriteRepository.isFavorite(uid, item.id, item.type)
                                     
                                     if (isAlreadyFavorite) {
-                                        bot.answerCallbackQuery(callback.id, "Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
-                                        bot.sendMessage(chat, "⚠️ Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
+                                        bot.callbackNotice(callback.id, "Этот ${RouterCollectionsSearch.getTypeDisplayName(item.type).lowercase()} уже есть в избранных")
+
                                     } else {
                                         FavoriteRepository.add(uid, item)
-                                        bot.answerCallbackQuery(callback.id, "✅ Сохранено в избранное!")
-                                        bot.sendMessage(chat, "✅ Сохранено в избранное!")
+                                        bot.callbackNotice(callback.id, "✅ Сохранено в избранное!")
+                                        val index = result.items.indexOfFirst { it.id == item.id && it.type == item.type }
+                                        RouterCollectionsSearch.showSingleSearchResult(bot, chat, uid, result.items, index, result.hasMore)
                                     }
                                 } else {
-                                    bot.answerCallbackQuery(callback.id, "Ошибка: элемент не найден.")
+                                    bot.callbackNotice(callback.id, "Ошибка: элемент не найден.")
                                 }
                             } catch (e: Exception) {
                                 println("Error saving single item to favorites: ${e.message}")
-                                bot.answerCallbackQuery(callback.id, "Ошибка при сохранении.")
+                                bot.callbackNotice(callback.id, "Ошибка при сохранении.")
                             }
                         }
                     }
                 } catch (e: Exception) {
                     println("Error parsing item type: ${e.message}")
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный тип элемента.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный тип элемента.")
                 }
             }
             
             data.startsWith("remove_item_") -> {
                 val parts = data.substringAfter("remove_item_").split("_")
                 if (parts.size != 2) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный формат данных.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный формат данных.")
                     return
                 }
                 
@@ -456,14 +468,14 @@ object RouterCollections {
                 val itemTypeName = parts[1]
                 
                 if (itemId == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный ID элемента.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный ID элемента.")
                     return
                 }
                 
                 try {
                     val itemType = RecommendationType.valueOf(itemTypeName)
                     FavoriteRepository.remove(uid, itemId, itemType)
-                    bot.answerCallbackQuery(callback.id, "✅ Удалено из избранного!")
+                    bot.callbackNotice(callback.id, "✅ Удалено из избранного!")
                     
                     // Обновляем сообщение с новым состоянием кнопки
                     val type = session.data["search_type"]?.let { RecommendationType.valueOf(it) }
@@ -471,7 +483,7 @@ object RouterCollections {
                     val currentIndex = session.data["search_current_index"]?.toIntOrNull() ?: 0
                     
                     if (type != null && query != null) {
-                        GlobalScope.launch {
+                        runBlocking {
                             try {
                                 val result = RecommendationRepository.searchMultiple(type, query, 20, offset = 0)
                                 if (currentIndex < result.items.size) {
@@ -484,14 +496,14 @@ object RouterCollections {
                     }
                 } catch (e: Exception) {
                     println("Error removing from favorites: ${e.message}")
-                    bot.answerCallbackQuery(callback.id, "Ошибка при удалении.")
+                    bot.callbackNotice(callback.id, "Ошибка при удалении.")
                 }
             }
             
             data.startsWith("delete_favorite_") -> {
                 val parts = data.substringAfter("delete_favorite_").split("_")
                 if (parts.size != 2) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный формат данных.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный формат данных.")
                     return
                 }
                 
@@ -499,17 +511,17 @@ object RouterCollections {
                 val itemTypeName = parts[1]
                 
                 if (itemId == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный ID элемента.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный ID элемента.")
                     return
                 }
                 
                 try {
                     val itemType = RecommendationType.valueOf(itemTypeName)
                     FavoriteRepository.remove(uid, itemId, itemType)
-                    bot.answerCallbackQuery(callback.id, "✅ Удалено из избранного!")
+                    bot.callbackNotice(callback.id, "✅ Удалено из избранного!")
                     
                     // Обновляем список избранных и показываем обновленный интерфейс
-                    GlobalScope.launch {
+                    runBlocking {
                         val updatedFavorites = FavoriteRepository.list(uid)
                         if (updatedFavorites.isEmpty()) {
                             // Если избранных больше нет, остаемся в меню подборок
@@ -523,7 +535,7 @@ object RouterCollections {
 • ⭐️ <b>Избранное</b> - просматривать сохраненные элементы
 
 Выберите действие:"""
-                            bot.sendMessage(chat, "У вас больше нет избранных элементов.")
+                            bot.screenText(chat, "У вас больше нет избранных элементов.")
                             ImageManager.sendMessageWithImage(
                                 bot, chat, collectionsMessage, profile,
                                 replyMarkup = KeyboardFactory.collectionsMenu(),
@@ -549,20 +561,20 @@ object RouterCollections {
                     }
                 } catch (e: Exception) {
                     println("Error deleting from favorites: ${e.message}")
-                    bot.answerCallbackQuery(callback.id, "Ошибка при удалении.")
+                    bot.callbackNotice(callback.id, "Ошибка при удалении.")
                 }
             }
             
             data.startsWith("nav_favorite_") -> {
                 val newIndex = data.substringAfter("nav_favorite_").toIntOrNull()
                 if (newIndex == null) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: неверный индекс.")
+                    bot.callbackNotice(callback.id, "Ошибка: неверный индекс.")
                     return
                 }
                 
                 val favorites = FavoriteRepository.list(uid)
                 if (newIndex < 0 || newIndex >= favorites.size) {
-                    bot.answerCallbackQuery(callback.id, "Ошибка: индекс вне диапазона.")
+                    bot.callbackNotice(callback.id, "Ошибка: индекс вне диапазона.")
                     return
                 }
                 
@@ -571,11 +583,11 @@ object RouterCollections {
                 session.data["favorites_index"] = newIndex.toString()
                 
                 // Показываем новый элемент
-                GlobalScope.launch {
+                runBlocking {
                     RouterCollectionsFavorites.showFavoriteItem(bot, chat, uid, favorites, newIndex)
                 }
                 
-                bot.answerCallbackQuery(callback.id)
+                bot.callbackNotice(callback.id)
             }
         }
     }
