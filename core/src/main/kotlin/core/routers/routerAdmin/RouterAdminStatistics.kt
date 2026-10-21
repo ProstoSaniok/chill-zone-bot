@@ -1,6 +1,7 @@
 package core.routers.routerAdmin
 
 import data.services.AdminService
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -25,6 +26,6 @@ object RouterAdminStatistics {
 🟢 <b>Активность прямо сейчас:</b>
 • Активны в последние 3 минуты: <b>$activeRightNow пользователей</b> ($activePercentageNow%)"""
 
-        bot.sendMessage(chat, message, parseMode = ParseMode.HTML)
+        bot.screenText(chat, message, parseMode = ParseMode.HTML)
     }
 }

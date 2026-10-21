@@ -1,5 +1,6 @@
 package core.routers.routerAdmin
 
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
@@ -98,7 +99,7 @@ object RouterAdminUsers {
                                         "Забаненные" -> "забаненных пользователей"
                                         else -> "пользователей"
                                 }
-                        bot.sendMessage(
+                        bot.screenText(
                                 chat,
                                 "❌ $filterMessage не найдены",
                                 replyMarkup = KeyboardAdmin.adminUserListMenu(filter)
@@ -201,15 +202,15 @@ object RouterAdminUsers {
                                 navRows + inlineRows
                         )
 
-                bot.sendMessage(
+                bot.screenText(
                         chatId = chat,
                         text = message,
                         parseMode = ParseMode.HTML,
                         replyMarkup = KeyboardAdmin.adminUserListMenu(filter)
                 )
-                bot.sendMessage(
+                bot.screenText(
                         chatId = chat,
-                        text = "📌 Навигация и действия:",
+                        text = "",
                         replyMarkup = inlineKeyboard
                 )
         }
@@ -223,7 +224,7 @@ object RouterAdminUsers {
         ) {
                 val bannedUsers = AdminService.getBannedUsers(50)
                 if (bannedUsers.isEmpty()) {
-                        bot.sendMessage(
+                        bot.screenText(
                                 chat,
                                 "✅ Забаненных пользователей нет",
                                 replyMarkup = KeyboardAdmin.adminBackOnlyMenu()
@@ -236,7 +237,7 @@ object RouterAdminUsers {
                 val bannedUserInfo = bannedUsers[index]
                 val bannedUser = users.profile(bannedUserInfo.userId) // Загружаем полный профиль
                 if (bannedUser == null) {
-                        bot.sendMessage(
+                        bot.screenText(
                                 chat,
                                 "❌ Профиль не найден",
                                 replyMarkup = KeyboardAdmin.adminMenu()
@@ -288,14 +289,14 @@ $banLine
                         append("${bannedUser.bio.ifBlank { "не указано" }}\n")
                 }
 
-                bot.sendMessage(
+                bot.screenText(
                         chat,
                         message,
                         parseMode = ParseMode.HTML,
                         replyMarkup = KeyboardAdmin.adminBannedNav(bannedUsers.size)
                 )
 
-                bot.sendMessage(
+                bot.screenText(
                         chat,
                         "Действия:",
                         replyMarkup = KeyboardAdmin.adminBannedInline(bannedUser)
@@ -326,7 +327,7 @@ $banLine
                         }
 
                 if (filteredUsers.isEmpty()) {
-                        bot.sendMessage(
+                        bot.screenText(
                                 chat,
                                 "❌ По вашему поиску и фильтру не найдено пользователей",
                                 replyMarkup = KeyboardAdmin.adminSearchMenu(filter)
@@ -418,13 +419,13 @@ $banLine
                                 navRows + inlineRows
                         )
 
-                bot.sendMessage(
+                bot.screenText(
                         chatId = chat,
                         text = message,
                         parseMode = ParseMode.HTML,
                         replyMarkup = KeyboardAdmin.adminSearchMenu(filter)
                 )
-                bot.sendMessage(chatId = chat, text = "📌 Навигация и действия:", replyMarkup = inlineKeyboard)
+                bot.screenText(chatId = chat, text = "", replyMarkup = inlineKeyboard)
         }
 
         fun showUserProfileView(
@@ -637,7 +638,7 @@ $banLine
                                         }
 
                                 if (photoFile != null && photoFile.exists()) {
-                                        bot.sendPhoto(
+                                        bot.screenPhoto(
                                                 chatId = chat,
                                                 photo = photoFile,
                                                 caption = message,
@@ -647,7 +648,7 @@ $banLine
                                         return
                                 } else {
                                         // fallback: возможно это Telegram file_id
-                                        bot.sendPhoto(
+                                        bot.screenPhoto(
                                                 chatId = chat,
                                                 photo = fileId,
                                                 caption = message,
@@ -662,7 +663,7 @@ $banLine
                 }
 
                 // Если нет аватарки или произошла ошибка, отправляем только текст
-                bot.sendMessage(
+                bot.screenText(
                         chatId = chat,
                         text = message,
                         parseMode = ParseMode.HTML,
@@ -760,7 +761,7 @@ $banLine
                                         }
 
                                 if (photoFile != null && photoFile.exists()) {
-                                        bot.sendPhoto(
+                                        bot.screenPhoto(
                                                 chatId = chat,
                                                 photo = photoFile,
                                                 caption = message,
@@ -769,7 +770,7 @@ $banLine
                                         )
                                         return
                                 } else {
-                                        bot.sendPhoto(
+                                        bot.screenPhoto(
                                                 chatId = chat,
                                                 photo = fileId,
                                                 caption = message,
@@ -784,7 +785,7 @@ $banLine
                 }
 
                 // Если нет аватарки или произошла ошибка, отправляем только текст
-                bot.sendMessage(
+                bot.screenText(
                         chatId = chat,
                         text = message,
                         parseMode = ParseMode.HTML,
@@ -896,7 +897,7 @@ $banLine
                         com.github.kotlintelegrambot.entities.InlineKeyboardMarkup.create(
                                 actionRows
                         )
-                bot.sendMessage(
+                bot.screenText(
                         chat,
                         message,
                         parseMode = ParseMode.HTML,

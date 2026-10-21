@@ -1,23 +1,17 @@
 package core.keyboards
 
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import data.models.BannedUser
 import data.models.UserProfile
 
 // Вспомогательная функция для создания клавиатур
-private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-    return KeyboardReplyMarkup(
-            keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-            resizeKeyboard = true,
-            oneTimeKeyboard = false
-    )
+private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+    return core.ui.UiKeyboard.rows(rows)
 }
 
 object KeyboardAdmin {
-    fun adminMenu(): KeyboardReplyMarkup =
+    fun adminMenu(): InlineKeyboardMarkup =
             kb(
                     listOf(
                             listOf("👥 Список пользователей", "🔍 Поиск пользователей"),
@@ -26,7 +20,7 @@ object KeyboardAdmin {
                     )
             )
 
-    fun moderatorMenu(): KeyboardReplyMarkup =
+    fun moderatorMenu(): InlineKeyboardMarkup =
             kb(
                     listOf(
                             listOf("👥 Список пользователей", "🔍 Поиск пользователей"),
@@ -35,28 +29,28 @@ object KeyboardAdmin {
                     )
             )
 
-    fun adminUserListMenu(filter: String = "Все"): KeyboardReplyMarkup =
+    fun adminUserListMenu(filter: String = "Все"): InlineKeyboardMarkup =
             kb(listOf(listOf("🔄 Фильтр: $filter"), listOf("⬅️ Обратно")))
 
-    fun adminSearchMenu(filter: String = "Все"): KeyboardReplyMarkup =
-            kb(listOf(listOf("🔄 Фильтр: $filter"), listOf("🚪 Выйти из поиска")))
-
-    fun adminSearchInputMenu(): KeyboardReplyMarkup =
-            kb(listOf(listOf("🚪 Выйти из поиска")))
-
-    fun moderatorUserListMenu(filter: String = "Все"): KeyboardReplyMarkup =
+    fun adminSearchMenu(filter: String = "Все"): InlineKeyboardMarkup =
             kb(listOf(listOf("🔄 Фильтр: $filter"), listOf("⬅️ Обратно")))
 
-    fun moderatorSearchInputMenu(): KeyboardReplyMarkup =
-            kb(listOf(listOf("🚪 Выйти из поиска")))
+    fun adminSearchInputMenu(): InlineKeyboardMarkup =
+            kb(listOf(listOf("⬅️ Обратно")))
 
-    fun adminBackOnlyMenu(): KeyboardReplyMarkup = kb(listOf(listOf("⬅️ Обратно")))
+    fun moderatorUserListMenu(filter: String = "Все"): InlineKeyboardMarkup =
+            kb(listOf(listOf("🔄 Фильтр: $filter"), listOf("⬅️ Обратно")))
 
-    fun banReasonInputMenu(): KeyboardReplyMarkup = kb(listOf(listOf("⬅️ Отмена")))
+    fun moderatorSearchInputMenu(): InlineKeyboardMarkup =
+            kb(listOf(listOf("⬅️ Обратно")))
 
-    fun profileViewBackMenu(): KeyboardReplyMarkup = kb(listOf(listOf("⬅️ Обратно")))
+    fun adminBackOnlyMenu(): InlineKeyboardMarkup = kb(listOf(listOf("⬅️ Обратно")))
 
-    fun profileViewModeratorMenu(isBanned: Boolean): KeyboardReplyMarkup =
+    fun banReasonInputMenu(): InlineKeyboardMarkup = kb(listOf(listOf("⬅️ Отмена")))
+
+    fun profileViewBackMenu(): InlineKeyboardMarkup = kb(listOf(listOf("⬅️ Обратно")))
+
+    fun profileViewModeratorMenu(isBanned: Boolean): InlineKeyboardMarkup =
             kb(
                     listOf(
                             listOf(if (isBanned) "✅ Разбанить" else "🚫 Забанить"),
@@ -64,7 +58,7 @@ object KeyboardAdmin {
                     )
             )
 
-    fun profileViewAdminMenu(isBanned: Boolean): KeyboardReplyMarkup =
+    fun profileViewAdminMenu(isBanned: Boolean): InlineKeyboardMarkup =
             kb(
                     listOf(
                                     listOf(if (isBanned) "✅ Разбанить" else "🚫 Забанить"),
@@ -74,7 +68,7 @@ object KeyboardAdmin {
                             .filter { row -> row.isNotEmpty() }
             )
 
-    fun adminBannedNav(totalCount: Int): KeyboardReplyMarkup {
+    fun adminBannedNav(totalCount: Int): InlineKeyboardMarkup {
         val rows = mutableListOf<List<String>>()
 
         if (totalCount > 1) {
@@ -130,7 +124,7 @@ object KeyboardAdmin {
         return InlineKeyboardMarkup.create(rows)
     }
 
-    fun profileViewAdminBanMenu(isBanned: Boolean, isTemporaryBan: Boolean): KeyboardReplyMarkup =
+    fun profileViewAdminBanMenu(isBanned: Boolean, isTemporaryBan: Boolean): InlineKeyboardMarkup =
             kb(
                     listOf(
                                     listOf(if (isBanned) "✅ Разбанить" else "🚫 Забанить"),
@@ -154,7 +148,7 @@ object KeyboardAdmin {
                             .filter { row -> row.isNotEmpty() }
             )
 
-    fun banAddTimeMenu(): KeyboardReplyMarkup =
+    fun banAddTimeMenu(): InlineKeyboardMarkup =
             kb(
                     listOf(
                             listOf("➕ 5 часов", "➕ 1 дней"),

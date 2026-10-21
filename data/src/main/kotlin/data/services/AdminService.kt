@@ -34,11 +34,12 @@ object AdminService {
         return userId in adminIds
     }
 
-    fun resolveAccountType(_userId: Long, storedType: AccountType): AccountType {
-        return storedType
+    fun resolveAccountType(userId: Long, storedType: AccountType): AccountType {
+        return if (isBootstrapAdmin(userId)) AccountType.ADMIN else storedType
     }
 
     fun getAccountType(userId: Long): AccountType {
+        if (isBootstrapAdmin(userId)) return AccountType.ADMIN
         return try {
             Db.single(
                     "select coalesce(account_type, 'user') as account_type from users where user_id = ?",
