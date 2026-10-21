@@ -1,18 +1,29 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
+import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 
 object KeyboardTests {
-    fun testsMenu(): KeyboardReplyMarkup = kb(
+    fun testsMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("Случайный тест", "Создать тест"),
-            listOf("Мои тесты"),
+            listOf("Мои тесты", "Поиск тестов"),
             listOf("⬅️ Обратно")
         )
     )
 
-    fun testKinds(): KeyboardReplyMarkup = kb(
+    fun testsSearchNavMenu(): InlineKeyboardMarkup = kb(
+        listOf(
+            listOf("⬅️ Обратно")
+        )
+    )
+
+    fun testsSearchResultsMenu(): InlineKeyboardMarkup = kb(
+        listOf(
+            listOf("⬅️ Обратно")
+        )
+    )
+
+    fun testKinds(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("SINGLE", "MULTI"),
             listOf("NUMBER", "MATCH"),
@@ -20,18 +31,14 @@ object KeyboardTests {
         )
     )
 
-    fun testsContinue(): KeyboardReplyMarkup = kb(
+    fun testsContinue(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("Да", "Нет"),
             listOf("⬅️ Обратно")
         )
     )
 
-    private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-        return KeyboardReplyMarkup(
-            keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-            resizeKeyboard = true,
-            oneTimeKeyboard = false
-        )
+    private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+        return core.ui.UiKeyboard.rows(rows)
     }
 }

@@ -1,19 +1,117 @@
 package core.routers
 
+import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.CallbackQuery
 import com.github.kotlintelegrambot.entities.ParseMode
 import core.ImageManager
 import core.PendingAction
 import core.Session
 import core.SessionStore
+import core.FSMContext
 import core.keyboards.KeyboardFactory
+import core.keyboards.KeyboardTests
 import data.models.*
 import data.repositories.TestRepository
 import data.repositories.UserRepository
 import data.services.ModerationService
 
 object RouterTests {
+    private const val PAGE_SIZE = 5
+
+    private fun showTestsMenu(bot: Bot, chat: ChatId, uid: Long, tests: TestRepository, users: UserRepository) {
+        val session = SessionStore.get(uid)
+        session.data["last_menu"] = "tests"
+        session.action = PendingAction.NONE
+        session.context = FSMContext.MEMES
+        val profile = users.profile(uid)
+        val testsMessage = """📝 <b>Меню тестов</b>
+
+Здесь вы можете:
+• <b>Случайный тест</b> - пройти случайный тест
+• <b>Мои тесты</b> - посмотреть список тестов
+• <b>Поиск тестов</b> - найти тест по названию
+
+Выберите действие:"""
+        ImageManager.sendMessageWithImage(
+                bot,
+                chat,
+                testsMessage,
+                profile,
+                parseMode = ParseMode.HTML,
+                replyMarkup = KeyboardFactory.testsMenu()
+        )
+    }
+
+    private fun showTestSearchPrompt(bot: Bot, chat: ChatId, uid: Long, users: UserRepository) {
+        val session = SessionStore.get(uid)
+        session.action = PendingAction.SEARCH_TESTS
+        session.data["last_menu"] = "tests"
+        val profile = users.profile(uid)
+        ImageManager.sendMessageWithImage(
+                bot,
+                chat,
+                "Напиши название теста для поиска.",
+                profile,
+                parseMode = ParseMode.HTML, replyMarkup = KeyboardTests.testsSearchNavMenu())
+    }
+
+    private fun showTestSearchResults(
+            bot: Bot,
+            chat: ChatId,
+            uid: Long,
+            tests: List<TestSummary>,
+            index: Int,
+            query: String
+    ) {
+        if (tests.isEmpty()) return
+        val session = SessionStore.get(uid)
+        val safeIndex = index.coerceIn(0, maxOf(0, tests.size - 1))
+        val endIndex = minOf(safeIndex + PAGE_SIZE, tests.size)
+        val page = tests.subList(safeIndex, endIndex)
+        session.action = PendingAction.TEST_SEARCH_RESULTS
+        session.data["test_search_results"] = tests.joinToString("|") { it.id.toString() }
+        session.data["test_search_query"] = query
+        session.data["test_search_index"] = safeIndex.toString()
+        session.data["last_menu"] = "tests"
+
+        val message = """🔎 <b>Поиск по</b> "$query" (${safeIndex + 1}-$endIndex из ${tests.size})
+
+Выберите тест:"""
+
+        val rows = mutableListOf<List<com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton>>()
+        page.forEach { test ->
+            rows.add(
+                    listOf(
+                            com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData(
+                                    text = "📝 ${test.title}",
+                                    callbackData = "test_search_start_${test.id}"
+                            )
+                )
+            )
+        }
+        if (tests.size > PAGE_SIZE) {
+            val prevIndex = if (safeIndex == 0) ((tests.size - 1) / PAGE_SIZE) * PAGE_SIZE else safeIndex - PAGE_SIZE
+            val nextIndex = if (safeIndex + PAGE_SIZE >= tests.size) 0 else safeIndex + PAGE_SIZE
+            rows.add(
+                    listOf(
+                            com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData(
+                                    text = "⬅️",
+                                    callbackData = "test_search_page_$prevIndex"
+                            ),
+                            com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData(
+                                    text = "➡️",
+                                    callbackData = "test_search_page_$nextIndex"
+                            )
+                    )
+            )
+        }
+
+        bot.screenText(chat, message, parseMode = ParseMode.HTML, replyMarkup = KeyboardTests.testsSearchResultsMenu())
+        bot.screenText(chat, "", replyMarkup = com.github.kotlintelegrambot.entities.InlineKeyboardMarkup.create(rows))
+    }
+
     fun startRandomTest(
             bot: Bot,
             chat: ChatId,
@@ -23,13 +121,14 @@ object RouterTests {
     ) {
         val test = tests.randomTest()
         if (test == null) {
-            bot.sendMessage(chat, "Пока нет тестов.", replyMarkup = KeyboardFactory.testsMenu())
+            bot.screenText(chat, "Пока нет тестов.", replyMarkup = KeyboardFactory.testsMenu())
             return
         }
         val runId = tests.createRun(uid, test.id)
         val session = SessionStore.get(uid)
         session.action = PendingAction.PLAY_TEST
-        session.data.clear()
+        session.clearDraft()
+        session.data["last_menu"] = "tests"
         session.data["run_id"] = runId.toString()
         session.data["test_id"] = test.id.toString()
         session.data["index"] = "0"
@@ -40,11 +139,11 @@ object RouterTests {
     fun showUserTests(bot: Bot, chat: ChatId, tests: TestRepository) {
         val list = tests.listTests()
         if (list.isEmpty()) {
-            bot.sendMessage(chat, "Пока тестов нет.", replyMarkup = KeyboardFactory.testsMenu())
+            bot.screenText(chat, "Пока тестов нет.", replyMarkup = KeyboardFactory.testsMenu())
             return
         }
         val my = list.take(10).joinToString("\n") { "• #${it.id} ${it.title}" }
-        bot.sendMessage(
+        bot.screenText(
                 chat,
                 "Доступные тесты:\n$my",
                 parseMode = ParseMode.HTML,
@@ -63,7 +162,7 @@ object RouterTests {
     ): Boolean {
         when (text) {
             "📝 Тесты" -> {
-                showUserTests(bot, chat, tests)
+                showTestsMenu(bot, chat, uid, tests, users)
                 return true
             }
             "Случайный тест" -> {
@@ -71,44 +170,68 @@ object RouterTests {
                 return true
             }
             "Мои тесты" -> {
+                SessionStore.get(uid).data["last_menu"] = "tests"
                 showUserTests(bot, chat, tests)
                 return true
             }
             "Создать тест" -> {
+                SessionStore.get(uid).data["last_menu"] = "tests"
                 session.action = PendingAction.CREATE_TEST_TITLE
-                session.data.clear()
+                session.clearDraft()
                 val profile = users.profile(uid)
-                ImageManager.sendMessageWithImage(bot, chat, "Придумай название теста.", profile) {
-                    bot.sendMessage(
-                            chat,
-                            "Ожидаю название:",
-                            replyMarkup = KeyboardFactory.testsMenu()
-                    )
-                }
+                ImageManager.sendMessageWithImage(bot, chat, "Придумай название теста.", profile, replyMarkup = KeyboardFactory.testsMenu())
+                return true
+            }
+            "Поиск тестов" -> {
+                showTestSearchPrompt(bot, chat, uid, users)
                 return true
             }
             "⬅️ Обратно" -> {
                 // Возврат в главное меню или в меню тестов
                 if (session.action in
-                                listOf(
-                                        PendingAction.CREATE_TEST_TITLE,
-                                        PendingAction.CREATE_TEST_KIND,
-                                        PendingAction.CREATE_TEST_PROMPT,
-                                        PendingAction.CREATE_TEST_MORE,
-                                        PendingAction.PLAY_TEST
-                                )
+                        listOf(
+                                PendingAction.SEARCH_TESTS,
+                                PendingAction.TEST_SEARCH_RESULTS,
+                                PendingAction.CREATE_TEST_TITLE,
+                                PendingAction.CREATE_TEST_KIND,
+                                PendingAction.CREATE_TEST_PROMPT,
+                                PendingAction.CREATE_TEST_MORE,
+                                PendingAction.PLAY_TEST
+                        )
                 ) {
                     session.action = PendingAction.NONE
-                    session.data.clear()
-                    showUserTests(bot, chat, tests)
+                    session.clearDraft()
+                    showTestsMenu(bot, chat, uid, tests, users)
                 } else {
                     // Возврат в главное меню
                     SessionStore.clear(uid)
-                    bot.sendMessage(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
+                    bot.screenText(chat, "Главное меню.", replyMarkup = KeyboardFactory.mainMenu())
                 }
                 return true
             }
             else -> {
+                if (session.action == PendingAction.SEARCH_TESTS) {
+                        val query = text.trim()
+                        if (query.isBlank()) {
+                            showTestSearchPrompt(bot, chat, uid, users)
+                            return true
+                        }
+
+                        val results = tests.listTests().filter {
+                            it.title.contains(query, ignoreCase = true)
+                        }
+                        if (results.isEmpty()) {
+                            bot.screenText(
+                                    chat,
+                                    "❌ Ничего не найдено по запросу: \"$query\"",
+                                    replyMarkup = KeyboardTests.testsSearchNavMenu()
+                            )
+                        } else {
+                            showTestSearchResults(bot, chat, uid, results, 0, query)
+                        }
+                        return true
+                }
+
                 when (session.action) {
                     PendingAction.CREATE_TEST_TITLE,
                     PendingAction.CREATE_TEST_KIND,
@@ -122,15 +245,15 @@ object RouterTests {
                                         "Использование ненормативной лексики"
                                 )
                                 ModerationService.clearWarnings(uid)
-                                bot.sendMessage(
+                                bot.screenText(
                                         chat,
                                         "🚫 Вы были заблокированы за использование ненормативной лексики."
                                 )
                                 session.action = PendingAction.NONE
-                                session.data.clear()
+                                session.clearDraft()
                             } else {
                                 ModerationService.addWarning(uid)
-                                bot.sendMessage(
+                                bot.screenText(
                                         chat,
                                         "⚠️ <b>Предупреждение!</b>\n\nВаше сообщение содержит недопустимый контент.\n\nПовторное нарушение приведёт к автоматическому бану на 1 сутки.",
                                         parseMode = ParseMode.HTML
@@ -146,13 +269,13 @@ object RouterTests {
                     PendingAction.CREATE_TEST_TITLE -> {
                         session.data["test_title"] = text
                         session.action = PendingAction.CREATE_TEST_KIND
-                        bot.sendMessage(chat, "Какой тип теста? (single, multi, number, match)")
+                        bot.screenText(chat, "Выбери тип теста:", replyMarkup = KeyboardFactory.testKinds())
                         return true
                     }
                     PendingAction.CREATE_TEST_KIND -> {
                         val kind = text.lowercase()
                         if (kind !in listOf("single", "multi", "number", "match")) {
-                            bot.sendMessage(
+                            bot.screenText(
                                     chat,
                                     "Неверный тип. Используй: single, multi, number, match"
                             )
@@ -160,13 +283,13 @@ object RouterTests {
                         }
                         session.data["test_kind"] = kind
                         session.action = PendingAction.CREATE_TEST_PROMPT
-                        bot.sendMessage(chat, "Напиши вопрос:")
+                        bot.screenText(chat, "Напиши вопрос:")
                         return true
                     }
                     PendingAction.CREATE_TEST_PROMPT -> {
                         session.data["test_prompt"] = text
                         session.action = PendingAction.CREATE_TEST_MORE
-                        bot.sendMessage(
+                        bot.screenText(
                                 chat,
                                 "Напиши варианты ответа (через |) и правильный ответ после |:\nПример: Вариант1 | Вариант2 | Вариант3 | 1"
                         )
@@ -181,10 +304,11 @@ object RouterTests {
                         val options = parts.dropLast(1)
                         val answer = parts.last()
 
+                        ScreenRenderer.persistent()
                         tests.createTestFull(title, prompt, kind, answer, options)
                         session.action = PendingAction.NONE
-                        session.data.clear()
-                        bot.sendMessage(
+                        session.clearDraft()
+                        bot.screenText(
                                 chat,
                                 "✅ Тест создан!\n\n📌 $title",
                                 replyMarkup = KeyboardFactory.testsMenu()
@@ -212,8 +336,8 @@ object RouterTests {
         val questions = tests.questions(testId)
         if (index >= questions.size) {
             session.action = PendingAction.NONE
-            session.data.clear()
-            bot.sendMessage(chat, "Тест уже завершён.", replyMarkup = KeyboardFactory.testsMenu())
+            session.clearDraft()
+            bot.screenText(chat, "Тест уже завершён.", replyMarkup = KeyboardFactory.testsMenu())
             return true
         }
 
@@ -226,9 +350,10 @@ object RouterTests {
         if (correct) users.addRating(uid, 1)
 
         if (index + 1 >= questions.size) {
+            ScreenRenderer.persistent()
             session.action = PendingAction.NONE
-            session.data.clear()
-            bot.sendMessage(
+            session.clearDraft()
+            bot.screenText(
                     chat,
                     "Тест завершён. Результат: $newCorrect/${questions.size}",
                     replyMarkup = KeyboardFactory.testsMenu()
@@ -253,29 +378,34 @@ object RouterTests {
         val header = "Вопрос ${index + 1}/${questions.size}:\n${q.prompt}"
         when (q.kind) {
             QuestionKind.SINGLE ->
-                    bot.sendMessage(
+                    bot.screenText(
                             chat,
                             header +
-                                    "\n\nОтветь одним из вариантов: ${q.options.joinToString(", ")}",
-                            parseMode = ParseMode.HTML,
-                            replyMarkup = KeyboardFactory.testsMenu()
+                                    "\n\nВыбери ответ:",
+                            replyMarkup = com.github.kotlintelegrambot.entities.InlineKeyboardMarkup.create(
+                                q.options.mapIndexed { optionIndex, option -> listOf(
+                                    com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData(
+                                        option, "answer:${optionIndex + 1}"
+                                    )
+                                ) }
+                            )
                     )
             QuestionKind.MULTI ->
-                    bot.sendMessage(
+                    bot.screenText(
                             chat,
                             header + "\n\nОтправь несколько вариантов через запятую.",
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.testsMenu()
                     )
             QuestionKind.NUMBER ->
-                    bot.sendMessage(
+                    bot.screenText(
                             chat,
                             header + "\n\nОтветь числом.",
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.testsMenu()
                     )
             QuestionKind.MATCH ->
-                    bot.sendMessage(
+                    bot.screenText(
                             chat,
                             header + "\n\nОтправь пары в виде левый=правый;левый2=правый2.",
                             parseMode = ParseMode.HTML,
@@ -284,17 +414,61 @@ object RouterTests {
         }
     }
 
-    private fun isCorrect(q: TestQuestion, answer: String): Boolean {
+    fun handleCallback(bot: Bot, callback: CallbackQuery, tests: TestRepository, users: UserRepository) {
+        val chat = ChatId.fromId(callback.message!!.chat.id)
+        val uid = SessionStore.get(callback.from.id).data["profile_impersonated_user_id"]?.toLongOrNull() ?: callback.from.id
+        val data = callback.data ?: return
+        val session = SessionStore.get(uid)
+
+        when {
+            data == "test_back_to_menu" -> {
+                showTestsMenu(bot, chat, uid, tests, users)
+                bot.callbackNotice(callback.id)
+            }
+            data.startsWith("test_search_start_") -> {
+                val testId = data.substringAfter("test_search_start_").toLongOrNull() ?: return
+                val test = tests.getTest(testId)
+                if (test == null) {
+                    bot.callbackNotice(callback.id, "❌ Тест не найден")
+                    return
+                }
+
+                val runId = tests.createRun(uid, test.id)
+                session.action = PendingAction.PLAY_TEST
+                session.clearDraft()
+                session.data["last_menu"] = "tests"
+                session.data["run_id"] = runId.toString()
+                session.data["test_id"] = test.id.toString()
+                session.data["index"] = "0"
+                session.data["correct"] = "0"
+                sendTestQuestion(bot, chat, runId, tests)
+                bot.callbackNotice(callback.id)
+            }
+            data.startsWith("test_search_page_") -> {
+                val pageIndex = data.substringAfter("test_search_page_").toIntOrNull() ?: return
+                val query = session.data["test_search_query"] ?: return
+                val results = tests.listTests().filter { it.title.contains(query, ignoreCase = true) }
+                if (results.isNotEmpty()) {
+                    showTestSearchResults(bot, chat, uid, results, pageIndex, query)
+                    bot.callbackNotice(callback.id)
+                }
+            }
+        }
+    }
+
+    internal fun isCorrect(q: TestQuestion, answer: String): Boolean {
         val user = answer.trim().lowercase()
         return when (q.kind) {
             QuestionKind.SINGLE -> {
                 val expected = q.answer.trim()
                 val optionIndex = expected.toIntOrNull()
+                val selected = user.toIntOrNull()?.let { q.options.getOrNull(it - 1) }
+                    ?.trim()?.lowercase() ?: user
                 if (optionIndex != null && optionIndex in 1..q.options.size) {
-                    q.options[optionIndex - 1].trim().lowercase() == user ||
+                    q.options[optionIndex - 1].trim().lowercase() == selected ||
                             user == expected.lowercase()
                 } else {
-                    q.answer.trim().lowercase() == user
+                    expected.lowercase() == selected
                 }
             }
             QuestionKind.MULTI -> {
