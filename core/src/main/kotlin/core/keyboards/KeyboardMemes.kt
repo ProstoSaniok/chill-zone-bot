@@ -1,60 +1,75 @@
 package core.keyboards
 
-import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 
 object KeyboardMemes {
-    fun memesMenu(): KeyboardReplyMarkup = kb(
+    fun memesMenu(): InlineKeyboardMarkup = kb(
         listOf(
-            listOf("Следующий мем", "Мои избр. мемы"),
-            listOf("Добавить мем"),
-            listOf("⬅️ Обратно")
+            listOf("🎲 Смотреть мемы"),
+            listOf("⭐ Избранные мемы", "➕ Добавить мем"),
+            listOf("🏠 Главное меню")
         )
     )
 
-    fun memesViewerMenu(): KeyboardReplyMarkup = kb(
+    fun memesViewerMenu(): InlineKeyboardMarkup = kb(
         listOf(
-            listOf("Следующий мем", "💾 Избр. мем"),
-            listOf("Мои избр. мемы", "Добавить мем"),
-            listOf("⬅️ Обратно")
+            listOf("🎲 Следующий мем"),
+            listOf("⭐ Избранные мемы", "➕ Добавить мем"),
+            listOf("⬅️ К мемам")
         )
     )
 
-    fun memesAddMenu(): KeyboardReplyMarkup = kb(
+    fun memesAddMenu(): InlineKeyboardMarkup = kb(
         listOf(
-            listOf("⬅️ Обратно")
+            listOf("❌ Отменить добавление")
         )
     )
 
-    fun memesFavoritesMenu(): KeyboardReplyMarkup = kb(
+    fun memesFavoritesMenu(): InlineKeyboardMarkup = kb(
         listOf(
-            listOf("Следующий мем"),
-            listOf("⬅️ Обратно")
+            listOf("🎲 Смотреть мемы", "➕ Добавить мем"),
+            listOf("⬅️ К мемам")
         )
     )
 
-    fun memeActionsInline(memeId: Long): InlineKeyboardMarkup {
-        return InlineKeyboardMarkup.create(
+    fun memeActionsInline(
+        memeId: Long,
+        likes: Int = 0,
+        dislikes: Int = 0,
+        favorite: Boolean = false,
+        vote: Int = 0,
+        favoriteIndex: Int? = null,
+        favoriteCount: Int = 0
+    ): InlineKeyboardMarkup {
+        val suffix = if (favoriteIndex == null) "" else "_saved"
+        val rows = mutableListOf<List<InlineKeyboardButton>>(
             listOf(
-                listOf(
-                    InlineKeyboardButton.CallbackData(text = "👍", callbackData = "meme_vote_${memeId}_1"),
-                    InlineKeyboardButton.CallbackData(text = "👎", callbackData = "meme_vote_${memeId}_-1")
-                ),
-                listOf(
-                    InlineKeyboardButton.CallbackData(text = "💾 Избр. мем", callbackData = "meme_fav_$memeId"),
-                    InlineKeyboardButton.CallbackData(text = "Следующий мем", callbackData = "meme_next")
+                InlineKeyboardButton.CallbackData(text = "👍 $likes${if (vote == 1) " ✓" else ""}", callbackData = "meme_vote_${memeId}_1$suffix"),
+                InlineKeyboardButton.CallbackData(text = "👎 $dislikes${if (vote == -1) " ✓" else ""}", callbackData = "meme_vote_${memeId}_-1$suffix")
+            ),
+            listOf(
+                InlineKeyboardButton.CallbackData(
+                    text = if (favorite) "★ Убрать из избранного" else "☆ В избранное",
+                    callbackData = "meme_fav_$memeId$suffix"
                 )
             )
         )
+        if (favoriteIndex == null) {
+            rows.add(listOf(InlineKeyboardButton.CallbackData(text = "🎲 Следующий мем", callbackData = "meme_next")))
+        } else {
+            val navigation = mutableListOf<InlineKeyboardButton>()
+            if (favoriteIndex > 0) navigation.add(InlineKeyboardButton.CallbackData(text = "← Предыдущий", callbackData = "meme_page_${memeId}_-1"))
+            navigation.add(InlineKeyboardButton.CallbackData(text = "${favoriteIndex + 1} / $favoriteCount", callbackData = "meme_position"))
+            if (favoriteIndex + 1 < favoriteCount) navigation.add(InlineKeyboardButton.CallbackData(text = "Следующий →", callbackData = "meme_page_${memeId}_1"))
+            rows.add(navigation)
+        }
+        return InlineKeyboardMarkup.create(
+            rows
+        )
     }
 
-    private fun kb(rows: List<List<String>>): KeyboardReplyMarkup {
-        return KeyboardReplyMarkup(
-            keyboard = rows.map { row -> row.map { KeyboardButton(text = it) } },
-            resizeKeyboard = true,
-            oneTimeKeyboard = false
-        )
+    private fun kb(rows: List<List<String>>): InlineKeyboardMarkup {
+        return core.ui.UiKeyboard.rows(rows)
     }
 }

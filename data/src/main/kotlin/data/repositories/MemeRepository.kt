@@ -99,8 +99,7 @@ class MemeRepository {
         return counts(memeId)
     }
 
-    fun toggleFavorite(userId: Long, memeId: Long): Boolean {
-        val exists = Db.single(
+    fun isFavorite(userId: Long, memeId: Long): Boolean = Db.single(
             "select 1 as x from meme_favorites where user_id = ? and meme_id = ?",
             bind = { stmt ->
                 stmt.setLong(1, userId)
@@ -109,7 +108,17 @@ class MemeRepository {
             map = { true }
         ) ?: false
 
-        if (exists) {
+    fun userVote(userId: Long, memeId: Long): Int = Db.single(
+        "select vote from meme_votes where user_id = ? and meme_id = ?",
+        bind = { stmt ->
+            stmt.setLong(1, userId)
+            stmt.setLong(2, memeId)
+        },
+        map = { it.getInt("vote") }
+    ) ?: 0
+
+    fun toggleFavorite(userId: Long, memeId: Long): Boolean {
+        if (isFavorite(userId, memeId)) {
             Db.execute("delete from meme_favorites where user_id = ? and meme_id = ?") { stmt ->
                 stmt.setLong(1, userId)
                 stmt.setLong(2, memeId)
