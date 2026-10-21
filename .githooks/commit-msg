@@ -5,8 +5,14 @@ set -eu
 commit_msg_file=$1
 summary_line=$(sed -n '1{s/\r$//;p;}' "$commit_msg_file")
 
+# Git keeps MERGE_HEAD until the merge commit is created. Its message can be
+# generated automatically and does not have to follow the regular convention.
+if [ -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+  exit 0
+fi
+
 case "$summary_line" in
-  "Merge branch "*|"Merge pull request "*|"Revert "*)
+  "Revert "*)
     exit 0
     ;;
 esac

@@ -95,31 +95,29 @@ git config core.hooksPath .githooks
 
 ## Примеры правильных коммитов
 
-```
-feat(adm): add user ban functionality
-fix: resolve null pointer exception in user service
-docs: update README with new features
-arch: split admin router into separate files
-sys: update docker-compose configuration
-refactor(service): simplify admin service logic
-test: add unit tests for user repository
-perf: optimize database queries in profile view
-style: format code according to project standards
-chore: update Gradle dependencies
-```
+- `feat(adm): add user ban functionality`
+- `fix: resolve null pointer exception in user service`
+- `docs: update README with new features`
+- `arch: split admin router into separate files`
+- `sys: update docker-compose configuration`
+- `refactor(service): simplify admin service logic`
+- `test: add unit tests for user repository`
+- `perf: optimize database queries in profile view`
+- `style: format code according to project standards`
+- `chore: update Gradle dependencies`
 
 ---
 
 ## Примеры неправильных коммитов
 
-❌ `added new feature` — нет типа
-❌ `Feat(adm): add feature` — тип должен быть строчным
-❌ `feat(Adm): add feature` — подтип должен быть строчным
-❌ `feat adm: add feature` — пропущены скобки
-❌ `feat(adm):` — отсутствует описание
-❌ `feat(adm)add feature` — пропущен пробел после двоеточия
-❌ `random(adm): add feature` — неверный тип
-❌ `feat(unknown): add feature` — неверный подтип
+- `added new feature` — нет типа
+- `Feat(adm): add feature` — тип должен быть строчным
+- `feat(Adm): add feature` — подтип должен быть строчным
+- `feat adm: add feature` — пропущены скобки
+- `feat(adm):` — отсутствует описание
+- `feat(adm)add feature` — пропущен пробел после двоеточия
+- `random(adm): add feature` — неверный тип
+- `feat(unknown): add feature` — неверный подтип
 
 ---
 
@@ -143,16 +141,16 @@ See COMMIT_CONVENTION.md for details.
 
 ## Исключения
 
-- **Merge commits** — пропускаются автоматически (формат `Merge branch ...`)
+- **Merge commits** — пропускаются автоматически, пока Git выполняет слияние (`MERGE_HEAD`); это работает и для сообщений вроде `Merge remote-tracking branch ...`
 - **Revert commits** — пропускаются автоматически (формат `Revert ...`)
 
 ---
 
 ## Настройка хука
 
-Хук для проверки коммитов находится в `.git/hooks/commit-msg`.
+Хук для проверки коммитов находится в `.githooks/commit-msg` и включается командой `git config core.hooksPath .githooks`.
 
 Если хук не работает, убедитесь, что:
-1. Файл `.git/hooks/commit-msg` существует
-2. У файла есть права на выполнение (на Linux/Mac: `chmod +x .git/hooks/commit-msg`)
+1. Файл `.githooks/commit-msg` существует
+2. У файла есть права на выполнение (на Linux/Mac: `chmod +x .githooks/commit-msg`)
 3. Вы используете Git для создания коммитов (не через IDE, если IDE игнорирует хуки)
