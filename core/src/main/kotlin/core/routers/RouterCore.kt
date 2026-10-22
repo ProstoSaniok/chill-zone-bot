@@ -108,7 +108,7 @@ class RouterCore(
                 users.setAvatar(activeUid, photo.fileId)
                 session.action = PendingAction.NONE
                 session.clearDraft()
-                bot.screenText(chat, "✅ Аватарка сохранена!", replyMarkup = KeyboardFactory.profileMenu(users.profile(activeUid)))
+                RouterProfile.showProfile(bot, chat, uid, users)
             } else {
                 // Изображение не квадратное - предлагаем варианты обработки
                 val (minSize, dimension) = FileValidator.getImageProcessingInfo(width, height)
@@ -331,11 +331,7 @@ class RouterCore(
 
     // Системные команды
     private fun handleStart(bot: Bot, chat: ChatId, uid: Long) {
-        ScreenRenderer.home()
-        SessionStore.clear(uid)
-        val profile = users.profile(uid)
-        val welcomeMessage = "Привет! Это Chill Zone Bot — всё для досуга в одном месте."
-        bot.screenText(chat, welcomeMessage, replyMarkup = KeyboardFactory.mainMenu())
+        handleMenu(bot, chat, uid)
     }
 
     private fun handleMenu(bot: Bot, chat: ChatId, uid: Long) {
@@ -522,7 +518,7 @@ class RouterCore(
                     if (AdminService.setBanReason(targetUserId, text)) {
                         val targetUser = users.profile(targetUserId)
                         if (targetUser != null) {
-                            bot.screenText(chat, "✅ Причина бана установлена: \"<b>$text</b>\"", parseMode = ParseMode.HTML)
+                            ScreenRenderer.notice("✅ Причина бана сохранена")
                             session.action = PendingAction.NONE
                             session.data.remove("admin_edit_target_user")
                             RouterAdminUsers.showUserProfileView(bot, chat, uid, targetUser, users)
@@ -591,6 +587,7 @@ class RouterCore(
                     users.setAvatar(uid, processedFilePath)
                     session.action = PendingAction.NONE
                     session.clearDraft()
+                    ScreenRenderer.notice("✅ Аватарка сохранена")
                     RouterProfile.showProfile(bot, chat, uid, users)
                 } else {
                     bot.screenText(chat, "❌ Ошибка при обработке изображения")
@@ -604,6 +601,7 @@ class RouterCore(
                     users.setAvatar(uid, processedFilePath)
                     session.action = PendingAction.NONE
                     session.clearDraft()
+                    ScreenRenderer.notice("✅ Аватарка сохранена")
                     RouterProfile.showProfile(bot, chat, uid, users)
                 } else {
                     bot.screenText(chat, "❌ Ошибка при обработке изображения")
@@ -632,28 +630,7 @@ class RouterCore(
             val chat = ChatId.fromId(message.chat.id)
             val activeUid = session.data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
             var command = action ?: return@transaction
-            if (command.startsWith("confirm:")) {
-                command = command.removePrefix("confirm:")
-            } else if (command.startsWith("admin_ban_") || command.startsWith("admin_unban_") ||
-                command.startsWith("admin_role_toggle_") || command in listOf("text:🚫 Забанить", "text:✅ Разбанить")) {
-                if (!AdminService.isAdmin(uid) && users.profile(uid)?.accountType != AccountType.MODERATOR) {
-                    bot.screenText(chat, "Недостаточно прав.")
-                    return@transaction
-                }
-                val target = command.substringAfterLast('_').toLongOrNull()
-                    ?: session.data["admin_profile_view_user_id"]?.toLongOrNull()
-                ScreenRenderer.pushHistory()
-                bot.screenText(chat, "Подтверди действие над пользователем #${target ?: "неизвестен"}: " +
-                    when {
-                        command.contains("unban") || command == "text:✅ Разбанить" -> "снять блокировку"
-                        command.contains("role_toggle") -> "изменить роль"
-                        else -> "заблокировать"
-                    }, replyMarkup = com.github.kotlintelegrambot.entities.InlineKeyboardMarkup.create(listOf(listOf(
-                        com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData("Подтвердить", "confirm:$command"),
-                        com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton.CallbackData("Отмена", "text:⬅️ Обратно")
-                    ))))
-                return@transaction
-            }
+            command = command.removePrefix("confirm:")
             if (command == "text:🏠 Главное меню" || command == "text:/menu") {
                 ScreenRenderer.home()
                 handleMenu(bot, chat, uid)
@@ -669,6 +646,11 @@ class RouterCore(
             } else if (command.startsWith("text:")) {
                 val text = command.removePrefix("text:")
                 if (isForwardNavigation(text)) ScreenRenderer.pushHistory()
+                if (text in setOf("👤 Профиль", "🗂 Подборки", "😂 Мемы", "🔮 Предсказания",
+                    "📝 Тесты", "📅 События", "🎮 Мини-игры", "🖼 Пиксель-арт", "💬 Обратная связь",
+                    "⚙️ Настройки", "✏️ Изменить профиль", "📊 Статистика аккаунта")) ScreenRenderer.refreshOnRestore(text) {
+                    handleButton(bot, chat, uid, activeUid, text, session)
+                }
                 // Buttons are commands, never accidental text input into a pending form.
                 if (!handleButton(bot, chat, uid, activeUid, text, session)) {
                     handleMessage(bot, message.copy(from = callback.from, text = text))

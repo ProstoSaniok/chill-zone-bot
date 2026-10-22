@@ -435,6 +435,11 @@ $banLine
                 targetUser: UserProfile,
                 users: UserRepository
         ) {
+                ScreenRenderer.refreshOnRestore {
+                        users.profile(targetUser.userId)?.let {
+                                showUserProfileView(bot, chat, uid, it, users)
+                        }
+                }
                 // Если это свой профиль, то показываем как обычный профиль с полным доступом
                 if (uid == targetUser.userId) {
                         RouterProfile.showProfile(bot, chat, uid, users)

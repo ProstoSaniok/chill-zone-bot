@@ -12,7 +12,10 @@ data class Screen(
     val keyboard: InlineKeyboardMarkup? = null,
     val photo: TelegramFile? = null,
     val parseMode: ParseMode? = null,
-    val persistent: Boolean = false
+    val persistent: Boolean = false,
+    val refresh: (() -> Unit)? = null,
+    val destination: String? = null,
+    val depth: Int = 0
 )
 
 data class SessionSnapshot(
@@ -38,7 +41,7 @@ class UiSession {
     var messageId: Long? = null
     var screen: Screen? = null
     var actions: Map<String, String> = emptyMap()
-    var keyboardRemoved = false
+    val retiredActions = LinkedHashMap<String, HistoryEntry>()
     var page = 0
     var renderedText: String? = null
     var renderedParseMode: ParseMode? = null

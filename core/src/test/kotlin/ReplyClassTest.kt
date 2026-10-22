@@ -21,6 +21,8 @@ class ReplyClassTest {
     private val requests = Collections.synchronizedList(mutableListOf<Pair<String, Map<String, String>>>())
     private var nextId = 0L
     private var editError: String? = null
+    private var photoError: String? = null
+    private var photoStatus = 400
     private val actor = sequence.incrementAndGet()
     private val chat get() = ChatId.fromId(actor)
     private val gson = Gson()
@@ -30,12 +32,19 @@ class ReplyClassTest {
         server.createContext("/") { exchange ->
             val method = exchange.requestURI.path.substringAfterLast('/')
             val body = exchange.requestBody.readAllBytes().toString(Charsets.UTF_8)
-            val params = body.split("&").associate { pair ->
+            val params = if (exchange.requestHeaders.getFirst("Content-Type").orEmpty().startsWith("multipart/")) {
+                Regex("name=\"([^\"]+)\".*?\\r\\n\\r\\n(.*?)\\r\\n--", RegexOption.DOT_MATCHES_ALL)
+                    .findAll(body).associate { it.groupValues[1] to it.groupValues[2] }
+            } else body.split("&").associate { pair ->
                 URLDecoder.decode(pair.substringBefore('='), "UTF-8") to
                     URLDecoder.decode(pair.substringAfter('=', ""), "UTF-8")
             }
             requests.add(method to params)
-            val failure = if (method.startsWith("edit")) editError.also { editError = null } else null
+            val failure = when {
+                method.startsWith("edit") -> editError.also { editError = null }
+                method == "sendPhoto" -> photoError.also { photoError = null }
+                else -> null
+            }
             val response = if (failure != null) {
                 """{"ok":false,"error_code":400,"description":"$failure"}"""
             } else if (method == "answerCallbackQuery") """{"ok":true,"result":true}"""
@@ -45,14 +54,14 @@ class ReplyClassTest {
             }
             val bytes = response.toByteArray()
             exchange.responseHeaders.set("Content-Type", "application/json")
-            exchange.sendResponseHeaders(if (failure == null) 200 else 400, bytes.size.toLong())
+            exchange.sendResponseHeaders(if (failure == null) 200 else if (method == "sendPhoto") photoStatus else 400, bytes.size.toLong())
             exchange.responseBody.use { it.write(bytes) }
         }
         server.start()
         bot = Bot.Builder().apply { token = "test"; apiUrl = "http://127.0.0.1:${server.address.port}/" }.build()
     }
 
-    @AfterTest fun stop() { server.stop(0) }
+    @AfterTest fun stop() { if (::server.isInitialized) server.stop(0) }
 
     private fun screen(text: String = "Menu") {
         bot.screenText(chat, text, replyMarkup = UiKeyboard.rows(listOf(listOf("Open"))))
@@ -74,6 +83,91 @@ class ReplyClassTest {
         ScreenRenderer.transaction(bot, actor, query.from.id, query) { block() }
     }
     private fun count(method: String) = requests.count { it.first == method }
+
+    private fun photo() {
+        bot.screenPhoto(chat, "unavailable-photo", "Service",
+            replyMarkup = UiKeyboard.rows(listOf(listOf("Open"))))
+    }
+
+    @Test fun rejectedPhotoKeepsServiceNavigationWorking() {
+        input()
+        photoError = "Bad Request: wrong file identifier/HTTP URL specified"
+        click { photo() }
+        assertEquals(1, count("sendPhoto"))
+        assertEquals(2, count("sendMessage"))
+        assertEquals("Service", requests.last { it.first == "sendMessage" }.second["text"])
+        click { screen("Next service") }
+        assertEquals(1, count("editMessageText"))
+        assertEquals(1, count("sendPhoto"))
+    }
+
+    @Test fun invalidPhotoUrlKeepsProfileNavigationWorking() {
+        input()
+        photoError = "Bad Request: invalid file HTTP URL specified: URL host is empty"
+        click { photo() }
+        assertEquals("Service", requests.last { it.first == "sendMessage" }.second["text"])
+        click()
+        assertEquals(1, count("editMessageText"))
+    }
+
+    @Test fun missingAvatarPathsAreNotSentAsTelegramFileIds() {
+        listOf("C:\\avatars\\profile.jpg", "/app/avatars/profile.jpg", "mocks/avatars/missing.jpg",
+            "file:///tmp/avatar.jpg", "https:///avatar.jpg", "").forEach {
+            assertFalse(core.routers.RouterProfile.isRemoteAvatar(it), it)
+        }
+        assertTrue(core.routers.RouterProfile.isRemoteAvatar("AgAC_valid-file_id"))
+        assertTrue(core.routers.RouterProfile.isRemoteAvatar("https://example.com/avatar.jpg"))
+    }
+
+    @Test fun rejectedPhotoEditFallsBackToText() {
+        input { photo() }
+        editError = "Bad Request: wrong file identifier/HTTP URL specified"
+        click {
+            bot.screenPhoto(chat, "another-photo", "Another service",
+                replyMarkup = UiKeyboard.rows(listOf(listOf("Open"))))
+        }
+        assertEquals(1, count("editMessageMedia"))
+        assertEquals(1, count("sendMessage"))
+        click()
+        assertEquals(1, count("editMessageText"))
+    }
+
+    @Test fun otherPhotoFailuresIncludeTelegramReasonWithoutRetrying() {
+        input()
+        photoError = "Bad Request: can't parse entities"
+        val failure = assertFailsWith<IllegalStateException> { click { photo() } }
+        assertTrue(failure.message.orEmpty().contains("can't parse entities"))
+        assertTrue(failure.message.orEmpty().contains("HTTP 400"))
+        assertEquals(1, count("sendMessage"))
+    }
+
+    @Test fun serverPhotoFailureDoesNotSendDuplicate() {
+        input()
+        photoStatus = 500
+        photoError = "Internal Server Error"
+        assertFailsWith<IllegalStateException> { click { photo() } }
+        assertEquals(1, count("sendMessage"))
+        assertEquals(1, count("sendPhoto"))
+    }
+
+    @Test fun avatarButtonIsDirectlyAboveBack() {
+        val rows = core.keyboards.KeyboardProfile.editProfileMenu().inlineKeyboard
+        assertEquals("⬅️ Обратно", (rows.last().single() as InlineKeyboardButton.CallbackData).text)
+        assertEquals("🖼️ Добавить аватарку", (rows[rows.lastIndex - 1].single() as InlineKeyboardButton.CallbackData).text)
+    }
+
+    @Test fun staleFormReturnsToParentWithoutReopeningInput() {
+        input()
+        click {
+            ScreenRenderer.pushHistory()
+            SessionStore.get(actor).action = PendingAction.EDIT_NAME
+            screen("Name?")
+        }
+        val old = callback(token("❌ Отмена"))
+        input { SessionStore.get(actor).action = PendingAction.NONE; screen("Updated") }
+        click(old) { fail("Stale form must not be submitted") }
+        assertEquals("Menu", requests.last { it.first == "sendMessage" }.second["text"])
+    }
 
     @Test fun navigationButtonsAreNotDuplicated() {
         input {
@@ -101,30 +195,36 @@ class ReplyClassTest {
         assertEquals(1, nestedButtons.count { it == "⬅️ Обратно" })
     }
 
-    @Test fun navigationEditsAndAcknowledgesBeforeWork() {
+    @Test fun navigationEditsAndAcknowledgesOnce() {
         input()
-        val before = requests.size
         click()
-        assertEquals("answerCallbackQuery", requests[before].first)
-        assertEquals(2, count("sendMessage")) // one migration notice, one screen
+        assertEquals("answerCallbackQuery", requests.last().first)
+        assertEquals(1, count("sendMessage")) // only the screen, without a migration notice
         assertEquals(1, count("editMessageText"))
         assertTrue(token().toByteArray().size <= 64)
     }
 
-    @Test fun oldAndForeignButtonsNeverExecute() {
+    @Test fun oldButtonsRestoreDestinationWithoutExecutingMutation() {
         input()
         val old = callback()
         click(old)
-        var executed = false
-        click(old) { executed = true }
-        click(callback(user = actor + 99999)) { executed = true }
-        assertFalse(executed)
+        click(old) { fail("Old action must not execute") }
+        assertEquals("Menu", requests.last { it.first == "sendMessage" }.second["text"])
+    }
+
+    @Test fun foreignButtonsRecoverToMenu() {
+        input()
+        val query = callback(user = actor + 99999)
+        ScreenRenderer.transaction(bot, actor, query.from.id, query) { command ->
+            assertEquals("text:🏠 Главное меню", command)
+            screen("Home")
+        }
     }
 
     @Test fun textInputCreatesScreenBelowInputAndRetiresOldKeyboard() {
         input()
         input { screen("Answer") }
-        assertEquals(3, count("sendMessage"))
+        assertEquals(2, count("sendMessage"))
         assertEquals(1, count("editMessageReplyMarkup"))
     }
 
@@ -133,7 +233,7 @@ class ReplyClassTest {
         click { ScreenRenderer.persistent(); screen("Result") }
         assertEquals(1, count("editMessageText"))
         click { screen("Menu again") }
-        assertEquals(3, count("sendMessage"))
+        assertEquals(2, count("sendMessage"))
         assertEquals(1, count("editMessageText"))
     }
 
@@ -142,7 +242,7 @@ class ReplyClassTest {
             screen("Card")
             bot.screenText(chat, "", replyMarkup = UiKeyboard.rows(listOf(listOf("Save"))))
         }
-        assertEquals(2, count("sendMessage"))
+        assertEquals(1, count("sendMessage"))
         assertTrue(token("Save").startsWith("ui:"))
         assertEquals("Card", requests.last().second["text"])
     }
@@ -151,17 +251,17 @@ class ReplyClassTest {
         input()
         editError = "Bad Request: message to edit not found"
         click()
-        assertEquals(3, count("sendMessage"))
+        assertEquals(2, count("sendMessage"))
         editError = "Bad Request: can't parse entities"
         assertFails { click { screen("Broken") } }
-        assertEquals(3, count("sendMessage"))
+        assertEquals(2, count("sendMessage"))
     }
 
     @Test fun duplicateEditIsNotAnError() {
         input()
         editError = "Bad Request: message is not modified"
         click()
-        assertEquals(2, count("sendMessage"))
+        assertEquals(1, count("sendMessage"))
     }
 
     @Test fun backRestoresFormAndKeepsEnteredDraft() {
@@ -197,20 +297,35 @@ class ReplyClassTest {
         val oldSends = count("sendMessage")
         click(callback(token("Страница →"))) { fail("Pagination should be handled by renderer") }
         assertEquals(oldSends, count("sendMessage"))
-        assertTrue(requests.last().second.getValue("text").length < 4096)
-        assertTrue(requests.last().second.getValue("text").endsWith("2 / 3"))
+        assertTrue(requests.last { it.first != "answerCallbackQuery" }.second.getValue("text").length < 4096)
+        assertTrue(requests.last { it.first != "answerCallbackQuery" }.second.getValue("text").endsWith("2 / 3"))
         click(callback(token("← Страница"))) { fail("Pagination should be handled by renderer") }
-        assertEquals("editMessageText", requests.last().first)
-        assertTrue(requests.last().second.getValue("text").endsWith("1 / 3"))
+        assertEquals("editMessageText", requests.last { it.first != "answerCallbackQuery" }.first)
+        assertTrue(requests.last { it.first != "answerCallbackQuery" }.second.getValue("text").endsWith("1 / 3"))
     }
 
-    @Test fun dismissingNoticeRestoresTheActualText() {
+    @Test fun noticeUsesTelegramToastWithoutChangingScreenText() {
         input()
         click { ScreenRenderer.notice("Saved") }
-        assertEquals("Menu\n\nSaved", requests.last().second["text"])
-        click { }
-        assertEquals("editMessageText", requests.last().first)
-        assertEquals("Menu", requests.last().second["text"])
+        val answer = requests.last { it.first == "answerCallbackQuery" }.second
+        assertEquals("Saved", answer["text"])
+        assertEquals("false", answer["show_alert"])
+        assertFalse(requests.any { it.second["text"]?.contains("Saved") == true && it.first != "answerCallbackQuery" })
+    }
+
+    @Test fun backAndStaleButtonsRefreshData() {
+        var name = "Old name"
+        input {
+            ScreenRenderer.refreshOnRestore { screen(name) }
+            screen(name)
+        }
+        val old = callback()
+        click { ScreenRenderer.pushHistory(); screen("Edit") }
+        name = "New name"
+        click { assertTrue(ScreenRenderer.back()) }
+        assertEquals(name, requests.last { it.first == "editMessageText" }.second["text"])
+        click(old) { fail("Stale action must not execute") }
+        assertEquals(name, requests.last { it.first == "sendMessage" }.second["text"])
     }
 
     @Test fun ignoredInputDoesNotResendOrInvalidateScreen() {
@@ -249,7 +364,7 @@ class ReplyClassTest {
 
     @Test fun homeDuringFormDoesNotPutFormBackInHistory() {
         input { SessionStore.get(actor).action = PendingAction.CREATE_EVENT_TITLE; screen("Title?") }
-        click(callback(token("🏠 Главное меню"))) {
+        click(callback(token("❌ Отмена"))) {
             ScreenRenderer.home()
             SessionStore.clear(actor)
             screen("Home")
@@ -275,11 +390,22 @@ class ReplyClassTest {
         }
     }
 
-    @Test fun invalidSessionAfterRestartRequiresMenu() {
-        var executed = false
-        click(callback("ui:unknown:0")) { executed = true }
-        assertFalse(executed)
-        assertEquals(0, count("sendMessage"))
+    @Test fun invalidSessionAfterRestartRecoversToMenu() {
+        val query = callback("ui:unknown:0")
+        ScreenRenderer.transaction(bot, actor, actor, query) { command ->
+            assertEquals("text:🏠 Главное меню", command)
+            screen("Home")
+        }
+        assertEquals("Home", requests.last { it.first == "sendMessage" }.second["text"])
+    }
+
+    @Test fun profileButtonAfterRestartRecoversToProfile() {
+        val query = callback("ui:2:expired:0")
+        ScreenRenderer.transaction(bot, actor, actor, query) { command ->
+            assertEquals("text:✏️ Изменить профиль", command)
+            screen("Updated profile")
+        }
+        assertEquals("Updated profile", requests.last { it.first == "sendMessage" }.second["text"])
     }
 
     companion object { private val sequence = AtomicLong(50000) }

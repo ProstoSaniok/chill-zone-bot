@@ -22,6 +22,7 @@ object RouterSettings {
             }
             "Включить картинки [✅]", "Выключить картинки [❌]" -> {
                 val enabled = users.toggleMedia(uid)
+                ScreenRenderer.notice(if (enabled) "✅ Картинки включены" else "✅ Картинки выключены")
                 val profile = users.profile(uid)
                 bot.screenText(chat, "Настройки.", replyMarkup = KeyboardFactory.settingsMenu(profile))
                 return true

@@ -41,13 +41,13 @@ object KeyboardProfile {
         return kb(
                 listOf(
                         listOf("Изменить имя", "Изменить био"),
-                        listOf(if (hasAvatar) "🖼️ Изменить аватарку" else "🖼️ Добавить аватарку"),
                         listOf(
                                 if (usernameHidden) "Показать username [👁️]"
                                 else "Скрыть username [🙈]",
                                 if (profileHidden) "Показать профиль [👁️]"
                                 else "Скрыть профиль [🙈]"
                         ),
+                        listOf(if (hasAvatar) "🖼️ Изменить аватарку" else "🖼️ Добавить аватарку"),
                         listOf("⬅️ Обратно")
                 )
         )

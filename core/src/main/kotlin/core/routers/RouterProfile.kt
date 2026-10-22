@@ -23,6 +23,13 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 object RouterProfile {
+    internal fun isRemoteAvatar(value: String): Boolean =
+        value.matches(Regex("[A-Za-z0-9_-]+")) ||
+            runCatching {
+                val uri = java.net.URI(value)
+                uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
+            }.getOrDefault(false)
+
     private const val IMPERSONATED_USER_ID = "profile_impersonated_user_id"
     private val dbDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSS]")
 
@@ -71,6 +78,7 @@ object RouterProfile {
 
     fun showProfile(bot: Bot, chat: ChatId, uid: Long, users: UserRepository) {
         val session = SessionStore.get(uid)
+        ScreenRenderer.refreshOnRestore("👤 Профиль") { showProfile(bot, chat, uid, users) }
         session.data["last_menu"] = "profile"
         val viewingUid = currentProfileUserId(uid, session)
         val profile = users.profile(viewingUid)
@@ -131,7 +139,7 @@ object RouterProfile {
                 val file = File(fileId)
                 val photoFile: File? =
                         when {
-                            file.exists() -> file
+                            file.isFile && file.canRead() -> file
                             else -> {
                                 val stream =
                                         RouterProfile::class.java.classLoader.getResourceAsStream(
@@ -158,7 +166,7 @@ object RouterProfile {
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.profileMenu(profile, accountSwitchLabel)
                     )
-                } else {
+                } else if (isRemoteAvatar(fileId)) {
                     bot.screenPhoto(
                             chatId = chat,
                             photo = fileId,
@@ -166,6 +174,10 @@ object RouterProfile {
                             parseMode = ParseMode.HTML,
                             replyMarkup = KeyboardFactory.profileMenu(profile, accountSwitchLabel)
                     )
+                } else {
+                    // A path saved by another host/container is not a Telegram file ID.
+                    bot.screenText(chat, messageText, parseMode = ParseMode.HTML,
+                        replyMarkup = KeyboardFactory.profileMenu(profile, accountSwitchLabel))
                 }
             } catch (e: Exception) {
                 println("❌ Ошибка при отправке аватарки: ${e.message}")
@@ -188,6 +200,7 @@ object RouterProfile {
     }
 
     private fun showEditProfileForm(bot: Bot, chat: ChatId, uid: Long, users: UserRepository) {
+        ScreenRenderer.refreshOnRestore("✏️ Изменить профиль") { showEditProfileForm(bot, chat, uid, users) }
         val session = SessionStore.get(uid)
         val profile = users.profile(currentProfileUserId(uid, session))
         if (profile == null) {
@@ -217,6 +230,9 @@ object RouterProfile {
     }
 
     fun showAdminEditProfileForm(bot: Bot, chat: ChatId, adminUid: Long, targetUser: UserProfile) {
+        ScreenRenderer.refreshOnRestore {
+            UserRepository().profile(targetUser.userId)?.let { showAdminEditProfileForm(bot, chat, adminUid, it) }
+        }
         val session = SessionStore.get(adminUid)
         session.action = PendingAction.ADMIN_EDIT_PROFILE
         session.data["admin_edit_target_user"] = targetUser.userId.toString()
@@ -297,6 +313,9 @@ object RouterProfile {
     }
 
     fun showAccountStats(bot: Bot, chat: ChatId, targetUser: UserProfile) {
+        ScreenRenderer.refreshOnRestore("📊 Статистика аккаунта") {
+            UserRepository().profile(targetUser.userId)?.let { showAccountStats(bot, chat, it) }
+        }
         val message =
                 """📊 <b>Дополнительная информация</b>
 
@@ -421,6 +440,7 @@ object RouterProfile {
             }
             "Показать username [👁️]", "Скрыть username [🙈]" -> {
                 users.toggleHideUsername(currentProfileUserId(uid, session))
+                ScreenRenderer.notice("✅ Видимость username изменена")
                 showEditProfileForm(bot, chat, uid, users)
                 return true
             }
@@ -436,6 +456,7 @@ object RouterProfile {
             }
             "Показать профиль [👁️]", "Скрыть профиль [🙈]" -> {
                 users.toggleHidden(currentProfileUserId(uid, session))
+                ScreenRenderer.notice("✅ Видимость профиля изменена")
                 showEditProfileForm(bot, chat, uid, users)
                 return true
             }
@@ -544,7 +565,7 @@ object RouterProfile {
                             }
                             users.updateName(targetUserId, text)
                             session.action = PendingAction.NONE
-                            bot.screenText(chat, "✅ Имя пользователя изменено на: \"$text\"")
+                            ScreenRenderer.notice("✅ Имя пользователя изменено на: \"$text\"")
                             showAdminEditProfileForm(
                                     bot,
                                     chat,
@@ -588,7 +609,7 @@ object RouterProfile {
                             val newUsername = text.trim().removePrefix("@")
                             users.updateUsername(targetUserId, newUsername)
                             session.action = PendingAction.NONE
-                            bot.screenText(chat, "✅ Username изменен на: \"@$newUsername\"")
+                            ScreenRenderer.notice("✅ Username изменен на: \"@$newUsername\"")
                             showAdminEditProfileForm(
                                     bot,
                                     chat,
@@ -631,7 +652,7 @@ object RouterProfile {
                             }
                             users.updateBio(targetUserId, text)
                             session.action = PendingAction.NONE
-                            bot.screenText(chat, "✅ Био изменено")
+                            ScreenRenderer.notice("✅ Био изменено")
                             showAdminEditProfileForm(bot, chat, uid, targetUser.copy(bio = text))
                         } else {
                             bot.screenText(chat, "❌ Пользователь не найден")

@@ -31,7 +31,13 @@ object ScreenRenderer {
         var result = false
         var forceNew = !fromCallback
         var notice: String? = null
+        var refresh: (() -> Unit)? = null
+        var destination: String? = null
+        var depth: Int? = null
     }
+    private val destinations = listOf("🏠 Главное меню", "👤 Профиль", "✏️ Изменить профиль",
+        "📊 Статистика аккаунта", "🗂 Подборки", "😂 Мемы", "🔮 Предсказания", "📝 Тесты",
+        "📅 События", "🎮 Мини-игры", "🖼 Пиксель-арт", "💬 Обратная связь", "⚙️ Настройки")
     private val conversations = ConcurrentHashMap<Key, Conversation>()
     private val current = ThreadLocal<Update?>()
 
@@ -41,22 +47,22 @@ object ScreenRenderer {
         synchronized(conversation) {
             SessionStore.withOwner(chat, actor) {
                 val ui = conversation.ui
-                val command = if (callback != null) {
-                    val action = ui.actions[callback.data]
-                    if (callback.message?.messageId != ui.messageId || action == null) {
-                        bot.answerCallbackQuery(callback.id, "Этот экран устарел. Открой /menu.")
-                        return@withOwner
-                    }
-                    // Acknowledge before network/database work. Consume all tokens atomically.
-                    bot.answerCallbackQuery(callback.id)
-                    ui.actions = emptyMap()
-                    action
-                } else null
+                val action = callback?.let { ui.actions[it.data] }
+                val stale = callback != null && (callback.message?.messageId != ui.messageId || action == null)
+                val retired = if (stale) ui.retiredActions[callback?.data] else null
+                val recovery = if (retired != null && isInputAction(retired.session.action))
+                    ui.history.lastOrNull { !isInputAction(it.session.action) } else retired
+                val destination = callback?.data?.split(':')?.getOrNull(1)?.toIntOrNull()
+                    ?.let { destinations.getOrNull(it) } ?: destinations.first()
+                val command = if (stale) "text:$destination" else action
                 val update = Update(bot, chat, actor, ui, callback != null,
                     SessionSnapshot.of(SessionStore.get(actor)))
+                if (stale) update.forceNew = true
                 current.set(update)
                 try {
-                    if (command?.startsWith("page:") == true) {
+                    if (stale && recovery != null && !isInputAction(recovery.session.action)) {
+                        restore(update, recovery)
+                    } else if (command?.startsWith("page:") == true) {
                         ui.page = command.removePrefix("page:").toIntOrNull() ?: 0
                     } else {
                         block(command)
@@ -74,10 +80,33 @@ object ScreenRenderer {
                     ui.actions = emptyMap()
                     throw e
                 } finally {
-                    current.remove()
+                    try {
+                        callback?.let { bot.answerCallbackQuery(it.id, update.notice?.take(200), showAlert = false) }
+                    } finally {
+                        current.remove()
+                    }
                 }
             }
         }
+    }
+
+    fun refreshOnRestore(destination: String? = null, render: () -> Unit) {
+        current.get()?.let { update ->
+            update.refresh = render
+            if (destination != null) update.destination = destination
+        }
+    }
+
+    private fun restore(update: Update, entry: HistoryEntry) {
+        entry.session.restore(SessionStore.get(update.actor))
+        update.parts.clear()
+        update.pushHistory = false
+        update.restoring = true
+        val refresh = entry.screen.refresh
+        update.refresh = refresh
+        update.destination = entry.screen.destination
+        update.depth = entry.screen.depth
+        if (refresh != null) refresh() else update.parts.add(entry.screen.copy(persistent = false))
     }
 
     fun pushHistory() { current.get()?.pushHistory = true }
@@ -94,12 +123,8 @@ object ScreenRenderer {
         val entry = update.ui.history.removeLastOrNull() ?: return false
         val session = SessionStore.get(update.actor)
         val draft = session.data.filterKeys { it in setOf("event_title", "event_desc", "event_place", "event_time", "event_max", "test_title", "test_kind", "test_prompt") }
-        entry.session.restore(session)
+        restore(update, entry)
         session.data.putAll(draft)
-        update.parts.clear()
-        update.parts.add(entry.screen.copy(persistent = false))
-        update.pushHistory = false
-        update.restoring = true
         return true
     }
 
@@ -160,29 +185,28 @@ object ScreenRenderer {
             PendingAction.COLLECTION_QUERY, PendingAction.ADMIN_SEARCH)
         val completedForm = !update.restoring && isInputAction(update.before.action) &&
             update.before.action !in searchActions && !isForm
+        val destination = update.destination ?: parts.lastOrNull()?.destination
         if (completedForm || update.result) {
             // A completed form must not be restored and submitted a second time.
-            while (ui.history.lastOrNull()?.let { isInputAction(it.session.action) } == true) {
-                ui.history.removeLast()
-            }
+            val returnedDepth = finishFormHistory(ui.history, if (completedForm) destination else null)
+            if (returnedDepth != null) update.depth = returnedDepth
             update.pushHistory = false
         }
         val isMainMenu = rows.any { row ->
             row.any { it is InlineKeyboardButton.CallbackData && it.callbackData == "text:👤 Профиль" }
         }
-        val hasBack = rows.any { row ->
-            row.any { it is InlineKeyboardButton.CallbackData && it.callbackData == "text:⬅️ Обратно" }
-        }
-        val hasHome = rows.any { row ->
-            row.any { it is InlineKeyboardButton.CallbackData && it.callbackData == "text:🏠 Главное меню" }
-        }
-        if (!isMainMenu && !hasBack && !hasHome) {
-            rows.add(UiKeyboard.rows(listOf(listOf("⬅️ Обратно", "🏠 Главное меню"))).inlineKeyboard.first())
-        }
-        val screen = Screen(text, InlineKeyboardMarkup.create(rows.toList()), photo,
+        val previousDepth = ui.screen?.depth ?: 0
+        val depth = if (isMainMenu) 0 else update.depth
+            ?: destination?.let { target -> ui.history.lastOrNull { it.screen.destination == target }?.screen?.depth }
+            ?: (previousDepth + if (update.pushHistory || ui.screen == null) 1 else 0).coerceAtLeast(1)
+        val navigation = navigationRows(rows, depth, isMainMenu)
+        rows.clear()
+        rows.addAll(navigation)
+        var screen = Screen(text, InlineKeyboardMarkup.create(rows.toList()), photo,
             parts.lastOrNull { it.parseMode != null }?.parseMode,
-            update.result || parts.any { it.persistent })
-        val fullText = listOfNotNull(screen.text, update.notice).distinct().joinToString("\n\n")
+            update.result || parts.any { it.persistent }, update.refresh ?: parts.lastOrNull()?.refresh,
+            destination, depth)
+        val fullText = screen.text
         val limit = if (photo == null) 3800 else 900
         // Long lists are paged, never silently truncated. Use plain text on long
         // pages so a page boundary cannot split an HTML tag/entity.
@@ -202,22 +226,14 @@ object ScreenRenderer {
             rows.add(0, navigation)
         }
 
-        // Keyboard removal needs its own message. Do this once per process/session.
-        if (!ui.keyboardRemoved) {
-            val removal = update.bot.sendMessage(ChatId.fromId(update.chat),
-                "Навигация теперь находится под сообщениями. Открыть меню: /menu",
-                replyMarkup = ReplyKeyboardRemove())
-            check(removal.isSuccess) { "Could not remove legacy keyboard: $removal" }
-            ui.keyboardRemoved = true
-        }
-
         val nonce = UUID.randomUUID().toString().replace("-", "").take(16)
         val actions = mutableMapOf<String, String>()
         var index = 0
         val keyboard = InlineKeyboardMarkup.create(rows.map { row ->
             row.map { button ->
                 if (button is InlineKeyboardButton.CallbackData) {
-                    val token = "ui:$nonce:${index++}"
+                    val destinationIndex = destinations.indexOf(screen.destination).coerceAtLeast(0)
+                    val token = "ui:$destinationIndex:$nonce:${index++}"
                     actions[token] = button.callbackData
                     InlineKeyboardButton.CallbackData(button.text, token)
                 } else button
@@ -229,12 +245,13 @@ object ScreenRenderer {
             (old.photo == null) != (screen.photo == null)
         val chat = ChatId.fromId(update.chat)
         if (!send) {
+            val photoToEdit = screen.photo
             val edited = when {
                 ui.renderedText == renderedText && ui.renderedParseMode == parseMode && old!!.photo == screen.photo ->
                     update.bot.editMessageReplyMarkup(chatId = chat, messageId = id, replyMarkup = keyboard)
-                screen.photo != null ->
+                photoToEdit != null ->
                     update.bot.editMessageMedia(chatId = chat, messageId = id,
-                        media = InputMediaPhoto(screen.photo, renderedText, parseMode?.modeName),
+                        media = InputMediaPhoto(photoToEdit, renderedText, parseMode?.modeName),
                         replyMarkup = keyboard)
                 else -> update.bot.editMessageText(chatId = chat, messageId = id,
                     text = renderedText, parseMode = parseMode, replyMarkup = keyboard)
@@ -243,6 +260,11 @@ object ScreenRenderer {
                 val error = edited.first?.errorBody()?.string().orEmpty()
                 when {
                     error.contains("message is not modified", true) -> Unit
+                    screen.photo != null && isUnavailablePhoto(edited.first?.code(), error) -> {
+                        System.err.println("Telegram photo unavailable; showing text: $error")
+                        screen = screen.copy(photo = null)
+                        send = true
+                    }
                     error.contains("message to edit not found", true) ||
                         error.contains("message can't be edited", true) -> send = true
                     else -> error("Telegram edit failed; no duplicate sent: $error ${edited.second}")
@@ -250,16 +272,26 @@ object ScreenRenderer {
             }
         }
         if (send) {
-            id = if (screen.photo != null) {
-                val sent = update.bot.sendPhoto(chat, screen.photo, caption = renderedText,
+            val photoToSend = screen.photo
+            if (photoToSend != null) {
+                val sent = update.bot.sendPhoto(chat, photoToSend, caption = renderedText,
                     parseMode = parseMode, replyMarkup = keyboard)
-                check(sent.first?.body()?.ok == true) { "Telegram photo failed: ${sent.second}" }
-                sent.first?.body()?.result?.messageId
-            } else {
+                if (sent.first?.body()?.ok == true) {
+                    id = sent.first?.body()?.result?.messageId
+                } else {
+                    val error = sent.first?.errorBody()?.string().orEmpty()
+                    check(isUnavailablePhoto(sent.first?.code(), error)) {
+                        "Telegram photo failed: HTTP ${sent.first?.code()}; $error; ${sent.second}"
+                    }
+                    System.err.println("Telegram photo unavailable; showing text: $error")
+                    screen = screen.copy(photo = null)
+                }
+            }
+            if (screen.photo == null) {
                 val sent = update.bot.sendMessage(chat, renderedText,
                     parseMode = parseMode, replyMarkup = keyboard)
                 check(sent.isSuccess) { "Telegram send failed: $sent" }
-                sent.get().messageId
+                id = sent.get().messageId
             }
             check(id != null) { "Telegram returned no message id" }
             ui.messageId?.let { previous ->
@@ -271,6 +303,12 @@ object ScreenRenderer {
             ui.history.addLast(HistoryEntry(old, update.before))
             while (ui.history.size > 30) ui.history.removeFirst()
         }
+        // Retain destinations for old buttons, never their mutation commands.
+        if (old != null) {
+            val entry = HistoryEntry(old, update.before)
+            ui.actions.keys.forEach { ui.retiredActions[it] = entry }
+            while (ui.retiredActions.size > 1000) ui.retiredActions.remove(ui.retiredActions.keys.first())
+        }
         ui.messageId = id
         ui.screen = screen
         ui.actions = actions
@@ -278,6 +316,50 @@ object ScreenRenderer {
         ui.renderedParseMode = parseMode
         update.delivered.forEach { it() }
     }
+
+    internal fun finishFormHistory(history: ArrayDeque<HistoryEntry>, destination: String?): Int? {
+        while (history.lastOrNull()?.let { isInputAction(it.session.action) } == true) {
+            history.removeLast()
+        }
+        // Returning to an existing screen replaces that history entry. Otherwise
+        // Back would reopen the same screen before reaching its parent.
+        val index = if (destination == null) -1 else history.indexOfLast { it.screen.destination == destination }
+        if (index < 0) return null
+        val depth = history[index].screen.depth
+        while (history.size > index) history.removeLast()
+        return depth
+    }
+
+    internal fun navigationRows(
+        rows: List<List<InlineKeyboardButton>>, depth: Int, isMainMenu: Boolean
+    ): List<List<InlineKeyboardButton>> {
+        val home = "text:🏠 Главное меню"
+        val back = "text:⬅️ Обратно"
+        val result = rows.map { row -> row.filterNot {
+            it is InlineKeyboardButton.CallbackData && it.callbackData == home
+        } }.filter { it.isNotEmpty() }.toMutableList()
+        if (isMainMenu) return result
+        var backRow = result.indexOfFirst { row -> row.any {
+            it is InlineKeyboardButton.CallbackData && it.callbackData == back
+        } }
+        if (backRow < 0) {
+            result.add(listOf(InlineKeyboardButton.CallbackData("⬅️ Обратно", back)))
+            backRow = result.lastIndex
+        }
+        if (depth in 2..3) {
+            result[backRow] = result[backRow] + InlineKeyboardButton.CallbackData("🏠 Главное меню", home)
+        }
+        return result
+    }
+
+    // Retry as text only after an explicit media rejection. A timeout/5xx may
+    // have delivered the photo already; retrying those could duplicate a result.
+    private fun isUnavailablePhoto(status: Int?, error: String): Boolean = status == 400 &&
+        listOf("wrong file identifier", "wrong remote file", "invalid file HTTP URL specified", "file_id", "file identifier",
+            "failed to get HTTP URL content", "wrong type of the web page content",
+            "IMAGE_PROCESS_FAILED", "PHOTO_INVALID_DIMENSIONS", "PHOTO_EXT_INVALID",
+            "photo must be non-empty", "file must be non-empty", "file is too big")
+            .any { error.contains(it, ignoreCase = true) }
 
     private fun isInputAction(action: PendingAction): Boolean = action in setOf(
         PendingAction.EDIT_NAME, PendingAction.EDIT_USERNAME, PendingAction.EDIT_BIO, PendingAction.EDIT_AVATAR,
@@ -322,6 +404,6 @@ fun Bot.screenPhoto(chatId: ChatId, photo: File, caption: String? = null,
     screenPhoto(chatId, TelegramFile.ByFile(photo), caption, parseMode, replyMarkup)
 
 fun Bot.callbackNotice(callbackQueryId: String, text: String? = null, showAlert: Boolean? = null) {
-    // The central dispatcher already acknowledged the query. Keep notices in the screen.
+    // The dispatcher answers once after routing so Telegram can display a toast.
     ScreenRenderer.notice(text)
 }
