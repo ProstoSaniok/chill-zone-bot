@@ -32,6 +32,7 @@ enum class PendingAction {
     COLLECTION_RESULTS,  // Результаты поиска
     SEARCH_TYPE_SELECT,  // Выбор типа поиска (фильмы, сериалы и т.д.)
     RPS_CHOICE,
+    TIC_TAC_TOE,
     VIEW_FAVORITES,  // Новый action для просмотра избранных с навигацией
     
     // Админские действия

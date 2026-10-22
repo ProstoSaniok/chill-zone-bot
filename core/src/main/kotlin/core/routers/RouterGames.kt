@@ -3,48 +3,55 @@ package core.routers
 import core.ui.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.dice.DiceEmoji
+import core.handlers.handlerTicTacToe
 import core.ImageManager
 import core.PendingAction
 import core.Session
 import core.SessionStore
 import core.keyboards.KeyboardFactory
+import core.keyboards.KeyboardGames
 import data.models.*
 import data.repositories.GameRepository
 import data.repositories.UserRepository
-import kotlin.random.Random
 
 object RouterGames {
-    fun playSimpleGame(
-            bot: Bot,
-            chat: ChatId,
-            uid: Long,
-            mode: String,
-            games: GameRepository,
-            users: UserRepository
+    fun playTelegramDice(
+        bot: Bot, chat: ChatId, uid: Long, game: String,
+        games: GameRepository, users: UserRepository
     ) {
+        val emoji = when (game) {
+            "⚽ Гол" -> DiceEmoji.Football
+            "🏀 В кольцо" -> DiceEmoji.Basketball
+            else -> DiceEmoji.SlotMachine
+        }
+        val value = bot.sendDice(chat, emoji).get().dice?.value
+            ?: error("Telegram не вернул результат игры")
         ScreenRenderer.persistent()
-        val points =
-                when (mode) {
-                    "football" -> listOf(0, 5, 10, 15).random()
-                    "basketball" -> listOf(5, 10, 15, 20).random()
-                    else -> Random.nextInt(1, 10)
-                }
-        if (points > 0) {
+        val won = when (game) {
+            "⚽ Гол" -> value == 3
+            "🏀 В кольцо" -> value == 4 || value == 5
+            else -> value in setOf(1, 22, 43, 64)
+        }
+        val result = if (won) {
+            val points = listOf(5, 10, 15, 20).random()
             games.win(uid, points)
             users.addRating(uid, maxOf(1, points / 5))
-            bot.screenText(
-                    chat,
-                    "Игра завершена. Ты получил $points очков!",
-                    replyMarkup = KeyboardFactory.gamesMenu()
-            )
+            "🎉 Победа! +$points очков рейтинга."
         } else {
             games.lose(uid)
-            bot.screenText(
-                    chat,
-                    "Не повезло, в этот раз без очков.",
-                    replyMarkup = KeyboardFactory.gamesMenu()
-            )
+            "😢 Проигрыш, без штрафа."
         }
+        bot.screenText(chat, "$game: $result", replyMarkup = KeyboardFactory.gamesMenu())
+    }
+
+    fun handleTicTacToe(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean {
+        if (text != "❌⭕️ Крестики-нолики" && text != "/tictactoe" &&
+            text != "🔁 Новая игра" && text != "👥 2 игрока" &&
+            text != "🤖 против бота" && text !in (1..9).map(Int::toString)) return false
+        session.action = PendingAction.TIC_TAC_TOE
+        bot.screenText(chat, handlerTicTacToe(uid, text), replyMarkup = KeyboardGames.ticTacToe())
+        return true
     }
 
     fun playWheel(bot: Bot, chat: ChatId, uid: Long, games: GameRepository, users: UserRepository) {
@@ -107,18 +114,27 @@ object RouterGames {
     ): Boolean {
         when (text) {
             "🎮 Мини-игры" -> {
+                session.action = PendingAction.NONE
                 showGameStats(bot, chat, uid, games)
                 return true
             }
             "⚽ Гол" -> {
-                playSimpleGame(bot, chat, uid, "football", games, users)
+                session.action = PendingAction.NONE
+                playTelegramDice(bot, chat, uid, text, games, users)
                 return true
             }
             "🏀 В кольцо" -> {
-                playSimpleGame(bot, chat, uid, "basketball", games, users)
+                session.action = PendingAction.NONE
+                playTelegramDice(bot, chat, uid, text, games, users)
+                return true
+            }
+            "🎰 Слоты" -> {
+                session.action = PendingAction.NONE
+                playTelegramDice(bot, chat, uid, text, games, users)
                 return true
             }
             "🎡 Колесо фортуны" -> {
+                session.action = PendingAction.NONE
                 playWheel(bot, chat, uid, games, users)
                 return true
             }
@@ -133,10 +149,12 @@ object RouterGames {
                 return true
             }
             "📊 Моя статистика" -> {
+                session.action = PendingAction.NONE
                 showGameStats(bot, chat, uid, games)
                 return true
             }
             "🏆 Топ игроков" -> {
+                session.action = PendingAction.NONE
                 showTopGames(bot, chat, games)
                 return true
             }

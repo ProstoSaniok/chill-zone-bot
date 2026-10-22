@@ -206,6 +206,11 @@ class RouterCore(
                     RouterEvents.handleEventAction(bot, chat, activeUid, "📅 События", events, users, session)
             "/games" ->
                     RouterGames.handleGameAction(bot, chat, activeUid, "🎮 Мини-игры", games, users, session)
+            "/minigames" ->
+                    RouterGames.handleGameAction(bot, chat, activeUid, "🎮 Мини-игры", games, users, session)
+            "/tictactoe" ->
+                    if (!checkUserBan(bot, chat, activeUid, "🎮 Мини-игры"))
+                        RouterGames.handleTicTacToe(bot, chat, uid, "/tictactoe", session)
             "/reload_admins" -> {
                 val newAdmins = AdminService.reloadAdmins()
                 val reloadMessage = """🔄 <b>Админские ID перезагружены</b>
@@ -424,9 +429,13 @@ class RouterCore(
                 if (checkUserBan(bot, chat, activeUid, "📅 События")) return
                 RouterEvents.handleEventAction(bot, chat, activeUid, text, events, users, session)
             }
-            "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "✂️ Камень-ножницы-бумага", "📊 Моя статистика", "🏆 Топ игроков", "🎮 Мини-игры" -> {
+            "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "🎰 Слоты", "✂️ Камень-ножницы-бумага", "📊 Моя статистика", "🏆 Топ игроков", "🎮 Мини-игры" -> {
                 if (checkUserBan(bot, chat, activeUid, "🎮 Мини-игры")) return
                 RouterGames.handleGameAction(bot, chat, activeUid, text, games, users, session)
+            }
+            "❌⭕️ Крестики-нолики" -> {
+                if (checkUserBan(bot, chat, activeUid, "🎮 Мини-игры")) return
+                RouterGames.handleTicTacToe(bot, chat, uid, text, session)
             }
             "Публичный холст", "🖼 Пиксель-арт" -> {
                 if (checkUserBan(bot, chat, activeUid, "🖼 Пиксель-арт")) return
@@ -529,6 +538,7 @@ class RouterCore(
                 true
             }
             PendingAction.RPS_CHOICE -> RouterGames.handleRpsChoice(bot, chat, activeUid, text, games, users, session)
+            PendingAction.TIC_TAC_TOE -> RouterGames.handleTicTacToe(bot, chat, uid, text, session)
             PendingAction.FEEDBACK_TEXT -> {
                 RouterFeedBack.handleFeedbackAction(bot, chat, activeUid, text, feedback, users, session)
             }
@@ -679,7 +689,7 @@ class RouterCore(
         "Поиск предсказаний", "Мои предсказания", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
         "Создать событие", "Мои события", "Оставить отзыв", "Посмотреть поддержку", "Публичный холст",
         "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи",
-        "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага"
+        "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага", "❌⭕️ Крестики-нолики"
     )
 
     private fun handleButton(bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session): Boolean {
@@ -702,7 +712,7 @@ class RouterCore(
             ScreenRenderer.pushHistory()
             return RouterCollections.handleCollectionAction(bot, chat, activeUid, text, users, session)
         }
-        if (isForwardNavigation(text) || text in listOf("Получить предсказание", "Получить ещё", "Ближайшие события", "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "Случайный тест")) {
+        if (isForwardNavigation(text) || text in listOf("Получить предсказание", "Получить ещё", "Ближайшие события", "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "🎰 Слоты", "Случайный тест")) {
             session.action = PendingAction.NONE
             handleModuleRoutes(bot, chat, uid, activeUid, text, session)
             return true
