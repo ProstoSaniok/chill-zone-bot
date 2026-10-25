@@ -18,12 +18,15 @@ import java.util.concurrent.ConcurrentHashMap
 object ScreenRenderer {
     private data class Key(val chat: Long, val actor: Long)
     private class Conversation {
-        val ui = UiSession()
+        var ui = UiSession()
+        val messages = LinkedHashMap<Long, Pair<UiSession, SessionSnapshot>>()
     }
     private class Update(
         val bot: Bot, val chat: Long, val actor: Long, val ui: UiSession,
         val fromCallback: Boolean, val before: SessionSnapshot
     ) {
+        val previousPage = ui.page
+        var preserveMessage: ((Long, UiSession, SessionSnapshot) -> Unit)? = null
         val parts = mutableListOf<Screen>()
         val delivered = mutableListOf<() -> Unit>()
         var pushHistory = false
@@ -46,6 +49,12 @@ object ScreenRenderer {
         val conversation = conversations.computeIfAbsent(Key(chat, actor)) { Conversation() }
         synchronized(conversation) {
             SessionStore.withOwner(chat, actor) {
+                val saved = callback?.message?.messageId?.let { conversation.messages[it] }
+                if (callback != null && saved != null && !isInputAction(saved.second.action) &&
+                    saved.first.actions.containsKey(callback.data)) {
+                    conversation.ui = saved.first
+                    saved.second.restore(SessionStore.get(actor))
+                }
                 val ui = conversation.ui
                 val action = callback?.let { ui.actions[it.data] }
                 val stale = callback != null && (callback.message?.messageId != ui.messageId || action == null)
@@ -57,6 +66,12 @@ object ScreenRenderer {
                 val command = if (stale) "text:$destination" else action
                 val update = Update(bot, chat, actor, ui, callback != null,
                     SessionSnapshot.of(SessionStore.get(actor)))
+                update.preserveMessage = { id, state, snapshot ->
+                    conversation.messages[id] = state to snapshot
+                    while (conversation.messages.size > 100) {
+                        conversation.messages.remove(conversation.messages.keys.first())
+                    }
+                }
                 if (stale) update.forceNew = true
                 current.set(update)
                 try {
@@ -206,6 +221,12 @@ object ScreenRenderer {
             parts.lastOrNull { it.parseMode != null }?.parseMode,
             update.result || parts.any { it.persistent }, update.refresh ?: parts.lastOrNull()?.refresh,
             destination, depth)
+        if (isMainMenu && !screen.text.startsWith("<tg-emoji ")) {
+            val menuText = MainMenuHeader.prepend(screen.text, screen.parseMode == ParseMode.HTML)
+            if (menuText != null) {
+                screen = screen.copy(text = menuText, parseMode = ParseMode.HTML)
+            }
+        }
         val fullText = screen.text
         val limit = if (photo == null) 3800 else 900
         // Long lists are paged, never silently truncated. Use plain text on long
@@ -295,8 +316,19 @@ object ScreenRenderer {
             }
             check(id != null) { "Telegram returned no message id" }
             ui.messageId?.let { previous ->
-                update.bot.editMessageReplyMarkup(chatId = chat, messageId = previous,
-                    replyMarkup = InlineKeyboardMarkup.create(emptyList<List<InlineKeyboardButton>>()))
+                // Each visible message keeps its own actions and session context.
+                // Never replay callbacks from an edited revision of that message.
+                val saved = UiSession().also {
+                    it.messageId = previous
+                    it.screen = old
+                    it.actions = ui.actions
+                    it.retiredActions.putAll(ui.retiredActions)
+                    it.page = update.previousPage
+                    it.renderedText = ui.renderedText
+                    it.renderedParseMode = ui.renderedParseMode
+                    it.history.addAll(ui.history)
+                }
+                update.preserveMessage?.invoke(previous, saved, update.before)
             }
         }
         if (update.pushHistory && old != null && !old.persistent) {
@@ -314,6 +346,8 @@ object ScreenRenderer {
         ui.actions = actions
         ui.renderedText = renderedText
         ui.renderedParseMode = parseMode
+        update.preserveMessage?.invoke(checkNotNull(id), ui,
+            SessionSnapshot.of(SessionStore.get(update.actor)))
         update.delivered.forEach { it() }
     }
 

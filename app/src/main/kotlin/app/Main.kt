@@ -7,6 +7,7 @@ import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.telegramError
 import com.github.kotlintelegrambot.entities.ChatId
 import core.Entry
+import core.ui.MainMenuHeader
 import data.SeedData
 import data.schemas.Schema
 import data.services.AdminService
@@ -43,6 +44,7 @@ fun main() {
 
     val env = dotenv()
     val token = env["BOT_TOKEN"] ?: env["TELEGRAM_TOKEN"] ?: error("BOT_TOKEN is not set")
+    MainMenuHeader.load(token)
     val router = Entry.buildRouter()
     var lastPollingErrorKey = ""
     var lastPollingErrorAt = 0L

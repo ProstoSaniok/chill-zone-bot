@@ -221,11 +221,40 @@ class ReplyClassTest {
         }
     }
 
-    @Test fun textInputCreatesScreenBelowInputAndRetiresOldKeyboard() {
+    @Test fun textInputCreatesScreenBelowInputAndKeepsOldKeyboard() {
         input()
         input { screen("Answer") }
         assertEquals(2, count("sendMessage"))
-        assertEquals(1, count("editMessageReplyMarkup"))
+        assertEquals(0, count("editMessageReplyMarkup"))
+    }
+
+    @Test fun previousResultButtonsUseTheirOwnContextOnFirstClick() {
+        input {
+            SessionStore.get(actor).data["prediction_id"] = "first"
+            ScreenRenderer.persistent()
+            screen("First prediction")
+        }
+        val first = callback()
+        click {
+            SessionStore.get(actor).data["prediction_id"] = "second"
+            ScreenRenderer.persistent()
+            screen("Second prediction")
+        }
+        val second = callback()
+        assertEquals(2, count("sendMessage"))
+        assertEquals(0, count("editMessageReplyMarkup"))
+
+        listOf(first to "first", second to "second").forEach { (query, expected) ->
+            var executed = false
+            ScreenRenderer.transaction(bot, actor, actor, query) { command ->
+                assertEquals("text:Open", command)
+                assertEquals(expected, SessionStore.get(actor).data["prediction_id"])
+                executed = true
+                ScreenRenderer.notice("Saved $expected")
+            }
+            assertTrue(executed)
+        }
+        assertEquals(2, count("sendMessage"))
     }
 
     @Test fun resultSurvivesNavigation() {
