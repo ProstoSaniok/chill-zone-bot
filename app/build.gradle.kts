@@ -14,6 +14,11 @@ dependencies {
 
 application { mainClass.set("app.MainKt") }
 
+tasks.named<JavaExec>("run") {
+    // Resolve .env from the project root for both local and Docker development runs.
+    workingDir(rootProject.projectDir)
+}
+
 kotlin { jvmToolchain(17) }
 
 tasks.withType<Copy>().configureEach { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }

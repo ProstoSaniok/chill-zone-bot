@@ -130,6 +130,35 @@ docker-compose up -d --build
 docker-compose down
 ```
 
+#### Разработка в dev режиме
+
+```bash
+# Остановить обычный экземпляр, чтобы не запускать два бота одновременно
+docker compose stop bot
+
+# Запустить режим разработки и базу данных
+docker compose up -d bot-dev
+
+# Смотреть логи приложения и сборки
+docker compose logs -f bot-dev
+```
+
+Изменения файлов Gradle и `.env` автоматически не отслеживаются:
+
+```bash
+# После изменения файлов Gradle
+docker compose restart bot-dev
+
+# После изменения переменных окружения в .env
+docker compose up -d --force-recreate bot-dev
+
+# Остановить режим разработки без удаления контейнера
+docker compose stop bot-dev
+```
+
+Чтобы вернуться к обычному запуску, остановите `bot-dev` и выполните
+`docker compose up -d --build bot`.
+
 ### 3. Конфигурация
 
 Создайте файл `.env` в корне проекта:
