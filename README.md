@@ -245,6 +245,13 @@ implementation("com.zaxxer:HikariCP:5.0.1")
 implementation("com.google.code.gson:gson:2.10.1")
 ```
 
+## Проверки качества кода
+
+Для единого стиля Kotlin и проверки структуры всех модулей подключены ktlint и
+detekt. Запуск: `.\gradlew.bat lint` (JDK 17). Проверки также входят в `check`,
+`build` и GitHub Actions. Команды автоформатирования, отчёты и правила работы с
+существующим техническим долгом описаны в [Docs/code-quality.md](Docs/code-quality.md).
+
 ## 🧾 Коммиты
 
 В проекте используется формат:
