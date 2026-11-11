@@ -12,6 +12,7 @@ import core.SessionStore
 import core.keyboards.KeyboardAdmin
 import core.keyboards.KeyboardFactory
 import core.routers.RouterProfile
+import core.routers.RouterContentModeration
 import data.*
 import data.models.*
 import data.repositories.UserRepository
@@ -31,6 +32,8 @@ object RouterAdmin {
         session.data["admin_panel_mode"] = "admin"
 
         val statsMessage = """🛡️ <b>Админ панель</b>
+
+Предсказания на проверке: ${RouterContentModeration.pendingCount(uid)}
 
 Выберите действие:"""
 
@@ -52,6 +55,8 @@ object RouterAdmin {
         session.data["admin_panel_mode"] = "moderator"
 
         val statsMessage = """🛡️ <b>Панель модератора</b>
+
+Предсказания на проверке: ${RouterContentModeration.pendingCount(uid)}
 
 Выберите действие:"""
 

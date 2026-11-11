@@ -396,6 +396,7 @@ object ScreenRenderer {
             .any { error.contains(it, ignoreCase = true) }
 
     private fun isInputAction(action: PendingAction): Boolean = action in setOf(
+        PendingAction.ADD_PREDICTION_TEXT, PendingAction.MODERATION_REJECTION_REASON,
         PendingAction.EDIT_NAME, PendingAction.EDIT_USERNAME, PendingAction.EDIT_BIO, PendingAction.EDIT_AVATAR,
         PendingAction.AVATAR_PROCESSING, PendingAction.ADD_MEME, PendingAction.FEEDBACK_TEXT,
         PendingAction.SEARCH_PREDICTIONS, PendingAction.SEARCH_TESTS, PendingAction.COLLECTION_QUERY,
