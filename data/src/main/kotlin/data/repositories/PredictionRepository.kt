@@ -61,16 +61,20 @@ class PredictionRepository {
         }
     }
 
-    fun listCollected(userId: Long): List<PredictionItem> {
+    fun listCollected(userId: Long, page: Int = 0): List<PredictionItem> {
         return Db.query(
             """
             select p.id, p.text, p.rarity, p.author_id
             from predictions p
             join prediction_history h on h.prediction_id = p.id
             where h.user_id = ?
-            order by h.claimed_at desc
+            order by h.claimed_at desc, p.id desc
+            limit 6 offset ?
             """,
-            bind = { stmt -> stmt.setLong(1, userId) },
+            bind = { stmt ->
+                stmt.setLong(1, userId)
+                stmt.setInt(2, page.coerceIn(0, 100000) * 5)
+            },
             map = { rs ->
                 PredictionItem(
                     rs.getLong("id"),

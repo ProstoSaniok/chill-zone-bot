@@ -9,6 +9,7 @@ import core.PendingAction
 import core.Session
 import core.SessionStore
 import core.keyboards.KeyboardFactory
+import core.keyboards.KeyboardPredictions
 import data.models.*
 import data.repositories.PredictionRepository
 import data.repositories.UserRepository
@@ -45,35 +46,34 @@ object RouterPredictions {
             bot: Bot,
             chat: ChatId,
             uid: Long,
-            predictions: PredictionRepository
+            predictions: PredictionRepository,
+            page: Int = 0
     ) {
-        val list = predictions.listCollected(uid)
-        if (list.isEmpty()) {
-            bot.screenText(
-                    chat,
-                    "Коллекция предсказаний пуста.",
-                    replyMarkup = KeyboardFactory.predictionsMenu()
-            )
-            return
-        }
+        val currentPage = page.coerceIn(0, 100000)
+        val list = predictions.listCollected(uid, currentPage)
+        SessionStore.get(uid).action = PendingAction.NONE
+        ScreenRenderer.refreshOnRestore { showCollectedPredictions(bot, chat, uid, predictions, currentPage) }
         bot.screenText(
                 chat,
-                list.joinToString("\n\n") { "• ${it.rarity}: ${it.text}" },
-                parseMode = ParseMode.HTML,
-                replyMarkup = KeyboardFactory.predictionsMenu()
+                "Моя коллекция · страница ${currentPage + 1}\n\n" +
+                    if (list.isEmpty()) "Коллекция предсказаний пуста." else list.take(5).mapIndexed { index, item ->
+                        "${currentPage * 5 + index + 1}. ${item.rarity}: ${item.text}"
+                    }.joinToString("\n\n"),
+                replyMarkup = KeyboardPredictions.collectionPage(currentPage, list.size > 5)
         )
     }
 
     fun showPredictionMenu(bot: Bot, chat: ChatId, uid: Long, users: UserRepository) {
         val profile = users.profile(uid)
         val session = SessionStore.get(uid)
+        session.action = PendingAction.NONE
         session.data["last_menu"] = "predictions"
         val menuMessage =
                 """🔮 <b>Меню предсказаний</b>
 
 Здесь вы можете:
-• <b>Получить предсказание</b> - получить случайное предсказание с редкостью
-• <b>Мои предсказания</b> - просмотреть собранную коллекцию предсказаний
+• <b>Получить</b> - получить случайное предсказание с редкостью
+• <b>Моя коллекция</b> - просмотреть собранные предсказания
 • <b>Поиск предсказаний</b> - найти предсказания по тексту или редкости
 
 Выберите действие:"""
@@ -94,11 +94,11 @@ object RouterPredictions {
                 showPredictionMenu(bot, chat, uid, users)
                 return true
             }
-            "Получить предсказание" -> {
+            "Получить", "Получить предсказание" -> {
                 givePrediction(bot, chat, uid, predictions, users)
                 return true
             }
-            "Мои предсказания" -> {
+            "Мои предсказания", "Моя коллекция" -> {
                 showCollectedPredictions(bot, chat, uid, predictions)
                 return true
             }

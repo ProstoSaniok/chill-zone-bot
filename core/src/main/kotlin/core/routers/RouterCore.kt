@@ -409,7 +409,7 @@ class RouterCore(
                 if (checkUserBan(bot, chat, activeUid, "🔮 Предсказания")) return
                 RouterPredictions.handlePredictionAction(bot, chat, activeUid, text, predictions, users, session)
             }
-            "Получить предсказание", "Мои предсказания", "Поиск предсказаний", "Получить ещё", "Добавить в избранные" -> {
+            "Получить", "Получить предсказание", "Мои предсказания", "Моя коллекция", "Поиск предсказаний", "Получить ещё", "Добавить в избранные" -> {
                 if (checkUserBan(bot, chat, activeUid, "🔮 Предсказания")) return
                 RouterPredictions.handlePredictionAction(bot, chat, activeUid, text, predictions, users, session)
             }
@@ -668,7 +668,7 @@ class RouterCore(
         "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора",
         "Изменить имя", "Изменить био", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку",
         "🔍 Поиск", "⭐ Избранное", "🎲 Смотреть мемы", "⭐ Избранные мемы", "➕ Добавить мем",
-        "Поиск предсказаний", "Мои предсказания", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
+        "Поиск предсказаний", "Мои предсказания", "Моя коллекция", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
         "Создать событие", "Мои события", "Оставить отзыв", "Посмотреть поддержку", "Публичный холст",
         "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи",
         "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага", "❌⭕️ Крестики-нолики"
@@ -694,7 +694,7 @@ class RouterCore(
             ScreenRenderer.pushHistory()
             return RouterCollections.handleCollectionAction(bot, chat, activeUid, text, users, session)
         }
-        if (isForwardNavigation(text) || text in listOf("Получить предсказание", "Получить ещё", "Ближайшие события", "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "🎰 Слоты", "Случайный тест")) {
+        if (isForwardNavigation(text) || text in listOf("Получить", "Получить предсказание", "Получить ещё", "Ближайшие события", "⚽ Гол", "🏀 В кольцо", "🎡 Колесо фортуны", "🎰 Слоты", "Случайный тест")) {
             session.action = PendingAction.NONE
             handleModuleRoutes(bot, chat, uid, activeUid, text, session)
             return true
@@ -718,6 +718,10 @@ class RouterCore(
         }
 
         when {
+            data.startsWith("prediction_collection:") -> {
+                val page = data.substringAfter(':').toIntOrNull() ?: return
+                RouterPredictions.showCollectedPredictions(bot, ChatId.fromId(callback.message!!.chat.id), activeUid, predictions, page)
+            }
             // Админские функции
             data.startsWith("admin_") || data.startsWith("ban_add_") || data.startsWith("ban_sub_") || data == "ban_add_cancel" -> {
                 RouterAdmin.handleCallback(bot, callback, users)
