@@ -169,6 +169,21 @@ class ReplyClassTest {
         assertEquals("Menu", requests.last { it.first == "sendMessage" }.second["text"])
     }
 
+    @Test fun moderationTextFormsCannotBeRestoredAndResubmittedFromOldButtons() {
+        for (action in listOf(PendingAction.ADD_PREDICTION_TEXT, PendingAction.MODERATION_REJECTION_REASON)) {
+            input { SessionStore.get(actor).action = PendingAction.NONE; screen("Moderation parent") }
+            click {
+                ScreenRenderer.pushHistory()
+                SessionStore.get(actor).action = action
+                screen("Text input")
+            }
+            val old = callback(token("❌ Отмена"))
+            input { SessionStore.get(actor).action = PendingAction.NONE; screen("Confirmation") }
+            click(old) { fail("An old moderation input must never be replayed") }
+            assertEquals("Moderation parent", requests.last { it.first == "sendMessage" }.second["text"])
+        }
+    }
+
     @Test fun navigationButtonsAreNotDuplicated() {
         input {
             bot.screenText(chat, "Главное меню", replyMarkup = KeyboardFactory.mainMenu())

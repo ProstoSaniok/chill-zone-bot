@@ -87,6 +87,19 @@ class RouterCore(
         val activeUid = session.data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
         val text = message.text?.trim()
 
+        if (RouterContentModeration.isInput(session) && text == "❌ Отмена") {
+            if (!ScreenRenderer.cancel()) handleMenu(bot, chat, uid)
+            return
+        }
+        if (RouterContentModeration.isInput(session) &&
+            (text == null || (!text.startsWith("/") && text !in setOf("⬅️ Обратно", "❌ Отмена") && !isForwardNavigation(text)))) {
+            RouterContentModeration.input(bot, chat, uid, text, session)
+            return
+        }
+        if (RouterContentModeration.isInput(session) && text != null && (text.startsWith("/") || isForwardNavigation(text))) {
+            session.action = PendingAction.NONE
+        }
+
         // Обработка фото для аватарки профиля
         if (session.action == PendingAction.EDIT_AVATAR && 
             (message.photo != null || message.document != null || message.video != null || 
@@ -157,6 +170,7 @@ class RouterCore(
         }
 
         if (text.isNullOrBlank()) return
+        if (RouterContentModeration.entry(bot, chat, uid, text, session)) return
 
         // Навигация раздела доступна и во время ожидания фото.
         if (RouterMemes.isNavigation(text) ||
@@ -668,13 +682,14 @@ class RouterCore(
         "✏️ Изменить профиль", "📊 Статистика аккаунта", "🛡️ Админ панель", "🛡️ Панель модератора",
         "Изменить имя", "Изменить био", "🖼️ Добавить аватарку", "🖼️ Изменить аватарку",
         "🔍 Поиск", "⭐ Избранное", "🎲 Смотреть мемы", "⭐ Избранные мемы", "➕ Добавить мем",
-        "Поиск предсказаний", "Мои предсказания", "Моя коллекция", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
+        "Поиск предсказаний", "Мои предсказания", "Моя коллекция", "Предложить предсказание", "Мои заявки", "Заявки на предсказания", "Создать тест", "Пройти тест", "Поиск тестов", "Мои тесты",
         "Создать событие", "Мои события", "Оставить отзыв", "Посмотреть поддержку", "Публичный холст",
         "👥 Список пользователей", "🔍 Поиск пользователей", "🚫 Забаненные пользователи",
         "📊 Статистика", "📊 Моя статистика", "🏆 Топ игроков", "✂️ Камень-ножницы-бумага", "❌⭕️ Крестики-нолики"
     )
 
     private fun handleButton(bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session): Boolean {
+        if (RouterContentModeration.entry(bot, chat, uid, text, session)) return true
         if (RouterMemes.isNavigation(text)) {
             if (!checkUserBan(bot, chat, activeUid, "😂 Мемы")) {
                 RouterMemes.handleMemeAction(bot, chat, activeUid, text, memes, users, session)
@@ -712,7 +727,7 @@ class RouterCore(
         val data = callback.data
         val activeUid = SessionStore.get(uid).data["profile_impersonated_user_id"]?.toLongOrNull() ?: uid
         if (!data.startsWith("admin_") && !data.startsWith("ban_") &&
-            (AdminService.isUserBanned(uid) || AdminService.isUserBanned(activeUid))) {
+            (AdminService.isUserBanned(uid) || (!data.startsWith("moderation:") && AdminService.isUserBanned(activeUid)))) {
             bot.callbackNotice(callback.id, "Доступ ограничен.")
             return
         }
@@ -721,6 +736,9 @@ class RouterCore(
             data.startsWith("prediction_collection:") -> {
                 val page = data.substringAfter(':').toIntOrNull() ?: return
                 RouterPredictions.showCollectedPredictions(bot, ChatId.fromId(callback.message!!.chat.id), activeUid, predictions, page)
+            }
+            data.startsWith("moderation:") -> {
+                RouterContentModeration.callback(bot, ChatId.fromId(callback.message!!.chat.id), uid, data, SessionStore.get(uid))
             }
             // Админские функции
             data.startsWith("admin_") || data.startsWith("ban_add_") || data.startsWith("ban_sub_") || data == "ban_add_cancel" -> {

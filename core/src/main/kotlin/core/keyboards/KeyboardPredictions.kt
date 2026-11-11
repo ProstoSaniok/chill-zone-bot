@@ -7,6 +7,7 @@ object KeyboardPredictions {
     fun predictionsMenu(): InlineKeyboardMarkup = kb(
         listOf(
             listOf("Получить", "Моя коллекция"),
+            listOf("Мои заявки"),
             listOf("Поиск предсказаний"),
             listOf("⬅️ Обратно")
         )

@@ -37,7 +37,6 @@ object RouterPredictions {
         bot.screenText(
                 chat,
                 " ${p.text}\n\nРедкость: ${p.rarity}",
-                parseMode = ParseMode.HTML,
                 replyMarkup = KeyboardFactory.predictionProcessMenu()
         )
     }
@@ -74,6 +73,7 @@ object RouterPredictions {
 Здесь вы можете:
 • <b>Получить</b> - получить случайное предсказание с редкостью
 • <b>Моя коллекция</b> - просмотреть собранные предсказания
+• <b>Мои заявки</b> - предложить предсказание, посмотреть статусы и причины отказа
 • <b>Поиск предсказаний</b> - найти предсказания по тексту или редкости
 
 Выберите действие:"""
