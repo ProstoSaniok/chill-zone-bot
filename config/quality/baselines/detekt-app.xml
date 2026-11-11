@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Main.kt$fun main()</ID>
+    <ID>InvalidPackageDeclaration:AppTest.kt$package app</ID>
+    <ID>LongMethod:Main.kt$fun main()</ID>
+    <ID>MatchingDeclarationName:AppTest.kt$AppBotTest</ID>
+    <ID>NewLineAtEndOfFile:AppTest.kt$app.AppTest.kt</ID>
+    <ID>NewLineAtEndOfFile:TestMain.kt$app.TestMain.kt</ID>
+    <ID>TooGenericExceptionCaught:Main.kt$e: Exception</ID>
+    <ID>UnusedPrivateProperty:AppTest.kt$AppBotTest$private val bot = mockk&lt;Bot&gt;(relaxed = true)</ID>
+  </CurrentIssues>
+</SmellBaseline>

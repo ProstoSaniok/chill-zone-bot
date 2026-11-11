@@ -1,0 +1,49 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 60
+  LargeClass:
+    active: true
+    threshold: 600
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 15
+  NestedBlockDepth:
+    active: true
+    threshold: 4
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 12
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+    thresholdInObjects: 30
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+
+exceptions:
+  SwallowedException:
+    active: true
+
+style:
+  # Formatting and import layout belong to ktlint; keep detekt focused on structure.
+  MaxLineLength:
+    active: false
+  WildcardImport:
+    active: false
+  MagicNumber:
+    active: false
+  ForbiddenComment:
+    active: false
