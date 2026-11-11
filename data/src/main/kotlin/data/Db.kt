@@ -22,6 +22,9 @@ object Db {
         conn
     }
 
+    /** Independent connection for operations that own their transaction. */
+    fun openConnection(): Connection = DriverManager.getConnection(url, user, pass)
+
     fun raw(sql: String) {
         connection.createStatement().use { it.execute(sql) }
     }

@@ -12,6 +12,7 @@ object Schema {
         GamesSchema.ensure()
         MemesSchema.ensure()
         PredictionsSchema.ensure()
+        ContentModerationSchema.ensure()
         CollectionsSchema.ensure()
         TestSchema.ensure()
         EventsSchema.ensure()

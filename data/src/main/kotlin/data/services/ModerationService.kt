@@ -37,6 +37,9 @@ object ModerationService {
         val shouldBan: Boolean
     )
 
+    /** Advisory signal only: no warnings or bans and no database reads. */
+    fun hasSuspiciousText(text: String): Boolean = badWordPatterns.any { it.matcher(text.lowercase()).find() }
+
     fun checkText(userId: Long, text: String): ModerationResult {
         if (text.isBlank()) return ModerationResult(true, 0, false)
 
