@@ -1,0 +1,156 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:FileValidator.kt$FileValidator$message.video != null || message.audio != null || message.voice != null || message.animation != null || message.sticker != null</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$!data.startsWith("admin_") &amp;&amp; !data.startsWith("ban_") &amp;&amp; (AdminService.isUserBanned(uid) || (!data.startsWith("moderation:") &amp;&amp; AdminService.isUserBanned(activeUid)))</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$RouterContentModeration.isInput(session) &amp;&amp; (text == null || (!text.startsWith("/") &amp;&amp; text !in setOf("⬅️ Обратно", "❌ Отмена") &amp;&amp; !isForwardNavigation(text)))</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$RouterContentModeration.isInput(session) &amp;&amp; text != null &amp;&amp; (text.startsWith("/") || isForwardNavigation(text))</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$RouterMemes.isNavigation(text) || (text == "⬅️ Обратно" &amp;&amp; session.context == FSMContext.MEMES &amp;&amp; session.data["meme_screen"] != null &amp;&amp; session.action in listOf(PendingAction.NONE, PendingAction.ADD_MEME))</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$session.action == PendingAction.ADD_MEME &amp;&amp; (message.photo != null || message.document != null || message.video != null || message.audio != null || message.voice != null || message.animation != null || message.sticker != null)</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$session.action == PendingAction.EDIT_AVATAR &amp;&amp; (message.photo != null || message.document != null || message.video != null || message.audio != null || message.voice != null || message.animation != null || message.sticker != null)</ID>
+    <ID>ComplexCondition:RouterCore.kt$RouterCore$text.startsWith("Тип бана:") || text == "Изменить время бана" || text == "🕒 Получить точное время бана" || text.startsWith("➕ ") || text.startsWith("➖ ") || text == "⬅️ К профилю"</ID>
+    <ID>ComplexCondition:RouterGames.kt$RouterGames$text != "❌⭕️ Крестики-нолики" &amp;&amp; text != "/tictactoe" &amp;&amp; text != "🔁 Новая игра" &amp;&amp; text != "👥 2 игрока" &amp;&amp; text != "🤖 против бота" &amp;&amp; text !in (1..9).map(Int::toString)</ID>
+    <ID>ComplexCondition:RouterTests.kt$RouterTests$options.size !in 2..6 || options.any(String::isBlank) || answers.isEmpty() || answers.any { answer -&gt; answer.toIntOrNull()?.let { it !in 1..options.size } ?: true } || (kind == QuestionKind.SINGLE &amp;&amp; answers.size != 1) || answers.distinct().size != answers.size</ID>
+    <ID>ComplexCondition:ScreenRenderer.kt$ScreenRenderer$!update.restoring &amp;&amp; update.before.action != PendingAction.NONE &amp;&amp; update.before.action != PendingAction.PLAY_TEST &amp;&amp; after != PendingAction.NONE &amp;&amp; after != update.before.action</ID>
+    <ID>ComplexCondition:ScreenRenderer.kt$ScreenRenderer$callback != null &amp;&amp; saved != null &amp;&amp; !isInputAction(saved.second.action) &amp;&amp; saved.first.actions.containsKey(callback.data)</ID>
+    <ID>CyclomaticComplexMethod:HandlersTicTacToe.kt$fun handlerTicTacToe(userId: Long, text: String): String</ID>
+    <ID>CyclomaticComplexMethod:ReplyClassTest.kt$ReplyClassTest$@BeforeTest fun start()</ID>
+    <ID>CyclomaticComplexMethod:RouterAdmin.kt$RouterAdmin$@Suppress("UNUSED_PARAMETER") fun handleAdminAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session )</ID>
+    <ID>CyclomaticComplexMethod:RouterAdmin.kt$RouterAdmin$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>CyclomaticComplexMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showSearchResults( bot: Bot, chat: ChatId, uid: Long, users: List&lt;UserProfile&gt;, index: Int = 0, allowRoleActions: Boolean = true )</ID>
+    <ID>CyclomaticComplexMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserList( bot: Bot, chat: ChatId, uid: Long, index: Int = 0, allowRoleActions: Boolean = true )</ID>
+    <ID>CyclomaticComplexMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView( bot: Bot, chat: ChatId, uid: Long, targetUser: UserProfile, users: UserRepository )</ID>
+    <ID>CyclomaticComplexMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView(bot: Bot, chat: ChatId, targetUser: UserProfile)</ID>
+    <ID>CyclomaticComplexMethod:RouterCollections.kt$RouterCollections$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>CyclomaticComplexMethod:RouterCollections.kt$RouterCollections$fun handleCollectionAction(bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session): Boolean</ID>
+    <ID>CyclomaticComplexMethod:RouterContentModeration.kt$RouterContentModeration$fun callback(bot: Bot, chat: ChatId, actor: Long, command: String, session: Session)</ID>
+    <ID>CyclomaticComplexMethod:RouterContentModeration.kt$RouterContentModeration$private fun card(bot: Bot, chat: ChatId, actor: Long, id: Long, review: Boolean, session: Session)</ID>
+    <ID>CyclomaticComplexMethod:RouterCore.kt$RouterCore$fun handleCallback(bot: Bot, callback: com.github.kotlintelegrambot.entities.CallbackQuery)</ID>
+    <ID>CyclomaticComplexMethod:RouterCore.kt$RouterCore$private fun handleMessage(bot: Bot, message: Message)</ID>
+    <ID>CyclomaticComplexMethod:RouterCore.kt$RouterCore$private fun handleModuleRoutes( bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session )</ID>
+    <ID>CyclomaticComplexMethod:RouterCore.kt$RouterCore$private fun handlePending(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean</ID>
+    <ID>CyclomaticComplexMethod:RouterCore.kt$RouterCore$private fun handleServiceCallback(bot: Bot, callback: com.github.kotlintelegrambot.entities.CallbackQuery)</ID>
+    <ID>CyclomaticComplexMethod:RouterEvents.kt$RouterEvents$fun handleEventAction( bot: Bot, chat: ChatId, uid: Long, text: String, events: EventRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>CyclomaticComplexMethod:RouterMemes.kt$RouterMemes$fun handleCallback(bot: Bot, callback: CallbackQuery, memes: MemeRepository)</ID>
+    <ID>CyclomaticComplexMethod:RouterProfile.kt$RouterProfile$fun handleProfileAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>CyclomaticComplexMethod:RouterProfile.kt$RouterProfile$fun showProfile(bot: Bot, chat: ChatId, uid: Long, users: UserRepository)</ID>
+    <ID>CyclomaticComplexMethod:RouterTests.kt$RouterTests$fun handleCallback(bot: Bot, callback: CallbackQuery, tests: TestRepository, users: UserRepository)</ID>
+    <ID>CyclomaticComplexMethod:RouterTests.kt$RouterTests$fun handleTestAction( bot: Bot, chat: ChatId, uid: Long, text: String, tests: TestRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>CyclomaticComplexMethod:RouterTests.kt$RouterTests$internal fun parseQuestion(kind: QuestionKind, prompt: String, input: String): NewTestQuestion?</ID>
+    <ID>CyclomaticComplexMethod:ScreenRenderer.kt$ScreenRenderer$fun transaction(bot: Bot, chat: Long, actor: Long, callback: CallbackQuery? = null, block: (String?) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:ScreenRenderer.kt$ScreenRenderer$private fun flush(update: Update)</ID>
+    <ID>EmptyKtFile:KeyboardSettings.kt$.KeyboardSettings.kt</ID>
+    <ID>ImplicitDefaultLocale:RouterAdminStatistics.kt$RouterAdminStatistics$String.format("%.1f", (activeRightNow.toDouble() / totalUsers * 100))</ID>
+    <ID>ImplicitDefaultLocale:RouterAdminStatistics.kt$RouterAdminStatistics$String.format("%.1f", (bannedUsers.toDouble() / totalUsers * 100))</ID>
+    <ID>InvalidPackageDeclaration:MainMenuHeaderTest.kt$package core</ID>
+    <ID>InvalidPackageDeclaration:NavigationTest.kt$package core</ID>
+    <ID>InvalidPackageDeclaration:ReplyClassTest.kt$package core</ID>
+    <ID>InvalidPackageDeclaration:TestAnswerTest.kt$package core</ID>
+    <ID>InvalidPackageDeclaration:TicTacToeTest.kt$package core</ID>
+    <ID>LargeClass:RouterAdmin.kt$RouterAdmin</ID>
+    <ID>LargeClass:RouterAdminUsers.kt$RouterAdminUsers</ID>
+    <ID>LargeClass:RouterCore.kt$RouterCore</ID>
+    <ID>LargeClass:RouterProfile.kt$RouterProfile</ID>
+    <ID>LongMethod:RouterAdmin.kt$RouterAdmin$@Suppress("UNUSED_PARAMETER") fun handleAdminAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session )</ID>
+    <ID>LongMethod:RouterAdmin.kt$RouterAdmin$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showBannedUsers( bot: Bot, chat: ChatId, uid: Long, users: UserRepository, index: Int = 0 )</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showSearchResults( bot: Bot, chat: ChatId, uid: Long, users: List&lt;UserProfile&gt;, index: Int = 0, allowRoleActions: Boolean = true )</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserList( bot: Bot, chat: ChatId, uid: Long, index: Int = 0, allowRoleActions: Boolean = true )</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfile(bot: Bot, chat: ChatId, targetUser: UserProfile)</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView( bot: Bot, chat: ChatId, uid: Long, targetUser: UserProfile, users: UserRepository )</ID>
+    <ID>LongMethod:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView(bot: Bot, chat: ChatId, targetUser: UserProfile)</ID>
+    <ID>LongMethod:RouterCollections.kt$RouterCollections$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>LongMethod:RouterCollections.kt$RouterCollections$fun handleCollectionAction(bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session): Boolean</ID>
+    <ID>LongMethod:RouterContentModeration.kt$RouterContentModeration$fun callback(bot: Bot, chat: ChatId, actor: Long, command: String, session: Session)</ID>
+    <ID>LongMethod:RouterCore.kt$RouterCore$private fun handleMessage(bot: Bot, message: Message)</ID>
+    <ID>LongMethod:RouterCore.kt$RouterCore$private fun handleModuleRoutes( bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session )</ID>
+    <ID>LongMethod:RouterCore.kt$RouterCore$private fun handlePending(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean</ID>
+    <ID>LongMethod:RouterEvents.kt$RouterEvents$fun handleEventAction( bot: Bot, chat: ChatId, uid: Long, text: String, events: EventRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>LongMethod:RouterFeedBack.kt$RouterFeedBack$fun handleFeedbackAction( bot: Bot, chat: ChatId, uid: Long, text: String, feedback: FeedbackRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>LongMethod:RouterGames.kt$RouterGames$fun handleGameAction( bot: Bot, chat: ChatId, uid: Long, text: String, games: GameRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>LongMethod:RouterMemes.kt$RouterMemes$fun handleCallback(bot: Bot, callback: CallbackQuery, memes: MemeRepository)</ID>
+    <ID>LongMethod:RouterProfile.kt$RouterProfile$fun handleProfileAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>LongMethod:RouterProfile.kt$RouterProfile$fun showAccountStats(bot: Bot, chat: ChatId, targetUser: UserProfile)</ID>
+    <ID>LongMethod:RouterProfile.kt$RouterProfile$fun showAdminEditProfileForm(bot: Bot, chat: ChatId, adminUid: Long, targetUser: UserProfile)</ID>
+    <ID>LongMethod:RouterProfile.kt$RouterProfile$fun showProfile(bot: Bot, chat: ChatId, uid: Long, users: UserRepository)</ID>
+    <ID>LongMethod:RouterTests.kt$RouterTests$fun handleTestAction( bot: Bot, chat: ChatId, uid: Long, text: String, tests: TestRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>LongMethod:ScreenRenderer.kt$ScreenRenderer$private fun flush(update: Update)</ID>
+    <ID>NestedBlockDepth:RouterAdmin.kt$RouterAdmin$@Suppress("UNUSED_PARAMETER") fun handleAdminAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session )</ID>
+    <ID>NestedBlockDepth:RouterAdmin.kt$RouterAdmin$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>NestedBlockDepth:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView( bot: Bot, chat: ChatId, uid: Long, targetUser: UserProfile, users: UserRepository )</ID>
+    <ID>NestedBlockDepth:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView(bot: Bot, chat: ChatId, targetUser: UserProfile)</ID>
+    <ID>NestedBlockDepth:RouterCore.kt$RouterCore$private fun handleMessage(bot: Bot, message: Message)</ID>
+    <ID>NestedBlockDepth:RouterCore.kt$RouterCore$private fun handlePending(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean</ID>
+    <ID>NestedBlockDepth:RouterEvents.kt$RouterEvents$fun handleEventAction( bot: Bot, chat: ChatId, uid: Long, text: String, events: EventRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>NestedBlockDepth:RouterFeedBack.kt$RouterFeedBack$fun handleFeedbackAction( bot: Bot, chat: ChatId, uid: Long, text: String, feedback: FeedbackRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>NestedBlockDepth:RouterProfile.kt$RouterProfile$fun handleProfileAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>NestedBlockDepth:RouterProfile.kt$RouterProfile$fun showProfile(bot: Bot, chat: ChatId, uid: Long, users: UserRepository)</ID>
+    <ID>NestedBlockDepth:RouterTests.kt$RouterTests$fun handleTestAction( bot: Bot, chat: ChatId, uid: Long, text: String, tests: TestRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>NewLineAtEndOfFile:KeyboardCollections.kt$core.keyboards.KeyboardCollections.kt</ID>
+    <ID>NewLineAtEndOfFile:KeyboardEvents.kt$core.keyboards.KeyboardEvents.kt</ID>
+    <ID>NewLineAtEndOfFile:KeyboardFeedBack.kt$core.keyboards.KeyboardFeedBack.kt</ID>
+    <ID>NewLineAtEndOfFile:KeyboardPixelArt.kt$core.keyboards.KeyboardPixelArt.kt</ID>
+    <ID>NewLineAtEndOfFile:TicTacToeBot.kt$core.minigames.tictactoe.TicTacToeBot.kt</ID>
+    <ID>ReturnCount:FileValidator.kt$FileValidator$fun validateAvatarImage(message: Message): Pair&lt;Boolean, String?&gt;</ID>
+    <ID>ReturnCount:FileValidator.kt$FileValidator$fun validateMemeImage(message: Message): Pair&lt;Boolean, String?&gt;</ID>
+    <ID>ReturnCount:HandlersTicTacToe.kt$fun handlerTicTacToe(userId: Long, text: String): String</ID>
+    <ID>ReturnCount:HandlersTicTacToe.kt$private fun applyMove(g: TicTacToeGame, i: Int): Boolean</ID>
+    <ID>ReturnCount:HandlersTicTacToe.kt$private fun finishIfNeeded(g: TicTacToeGame): String?</ID>
+    <ID>ReturnCount:RouterAdmin.kt$RouterAdmin$@Suppress("UNUSED_PARAMETER") fun handleAdminAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session )</ID>
+    <ID>ReturnCount:RouterAdminUsers.kt$RouterAdminUsers$fun showBannedUsers( bot: Bot, chat: ChatId, uid: Long, users: UserRepository, index: Int = 0 )</ID>
+    <ID>ReturnCount:RouterAdminUsers.kt$RouterAdminUsers$fun showUserProfileView( bot: Bot, chat: ChatId, uid: Long, targetUser: UserProfile, users: UserRepository )</ID>
+    <ID>ReturnCount:RouterCollections.kt$RouterCollections$fun handleCallback(bot: Bot, callback: CallbackQuery, users: UserRepository)</ID>
+    <ID>ReturnCount:RouterCollections.kt$RouterCollections$fun handleCollectionAction(bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session): Boolean</ID>
+    <ID>ReturnCount:RouterCore.kt$RouterCore$private fun handleAvatarProcessing(bot: Bot, chat: ChatId, uid: Long, text: String, session: Session): Boolean</ID>
+    <ID>ReturnCount:RouterCore.kt$RouterCore$private fun handleButton(bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session): Boolean</ID>
+    <ID>ReturnCount:RouterCore.kt$RouterCore$private fun handleMessage(bot: Bot, message: Message)</ID>
+    <ID>ReturnCount:RouterCore.kt$RouterCore$private fun handleModuleRoutes( bot: Bot, chat: ChatId, uid: Long, activeUid: Long, text: String, session: Session )</ID>
+    <ID>ReturnCount:RouterEvents.kt$RouterEvents$fun handleEventAction( bot: Bot, chat: ChatId, uid: Long, text: String, events: EventRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterFeedBack.kt$RouterFeedBack$fun handleFeedbackAction( bot: Bot, chat: ChatId, uid: Long, text: String, feedback: FeedbackRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterGames.kt$RouterGames$fun handleGameAction( bot: Bot, chat: ChatId, uid: Long, text: String, games: GameRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterMemes.kt$RouterMemes$fun handleCallback(bot: Bot, callback: CallbackQuery, memes: MemeRepository)</ID>
+    <ID>ReturnCount:RouterPixelArt.kt$RouterPixelArt$fun handlePixelAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository ): Boolean</ID>
+    <ID>ReturnCount:RouterPredictions.kt$RouterPredictions$fun handlePredictionAction( bot: Bot, chat: ChatId, uid: Long, text: String, predictions: PredictionRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterProfile.kt$RouterProfile$fun handleProfileAction( bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterSettings.kt$RouterSettings$fun handleSettingsAction(bot: Bot, chat: ChatId, uid: Long, text: String, users: UserRepository): Boolean</ID>
+    <ID>ReturnCount:RouterTests.kt$RouterTests$fun handleCallback(bot: Bot, callback: CallbackQuery, tests: TestRepository, users: UserRepository)</ID>
+    <ID>ReturnCount:RouterTests.kt$RouterTests$fun handleTestAction( bot: Bot, chat: ChatId, uid: Long, text: String, tests: TestRepository, users: UserRepository, session: Session ): Boolean</ID>
+    <ID>ReturnCount:RouterTests.kt$RouterTests$fun handleTestAnswer( bot: Bot, chat: ChatId, uid: Long, text: String, session: Session, tests: TestRepository, users: UserRepository ): Boolean</ID>
+    <ID>ReturnCount:ScreenRenderer.kt$ScreenRenderer$fun back(): Boolean</ID>
+    <ID>ReturnCount:ScreenRenderer.kt$ScreenRenderer$fun cancel(): Boolean</ID>
+    <ID>ReturnCount:TicTacToeBot.kt$TicTacToeBot$fun chooseMove(board: CharArray, bot: Char = 'O', human: Char = 'X'): Int</ID>
+    <ID>ReturnCount:TicTacToeBot.kt$TicTacToeBot$private fun findWinning(board: CharArray, p: Char): Int</ID>
+    <ID>SpreadOperator:RouterContentModeration.kt$RouterContentModeration$( *PredictionContent.rarities.mapIndexed { i, label -&gt; listOf(label to "approval:${item.id}:$i") }.toTypedArray(), listOf("К заявке" to "card:review:${item.id}") )</ID>
+    <ID>SpreadOperator:RouterContentModeration.kt$RouterContentModeration$( *PredictionContent.rarities.mapIndexed { i, label -&gt; listOf(label to "rarity:$i") }.toTypedArray(), home )</ID>
+    <ID>SpreadOperator:RouterContentModeration.kt$RouterContentModeration$( *reasons.mapIndexed { i, reason -&gt; listOf(reason to "preset:${item.id}:$i") }.toTypedArray(), listOf("Написать свою причину" to "custom:${item.id}"), listOf("К заявке" to "card:review:${item.id}") )</ID>
+    <ID>SpreadOperator:RouterContentModeration.kt$RouterContentModeration$(*rows.toTypedArray())</ID>
+    <ID>SwallowedException:RouterAdmin.kt$RouterAdmin$e: Exception</ID>
+    <ID>SwallowedException:RouterCore.kt$RouterCore$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterAdmin.kt$RouterAdmin$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterAdminUsers.kt$RouterAdminUsers$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterCollections.kt$RouterCollections$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterCollectionsFavorites.kt$RouterCollectionsFavorites$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterCore.kt$RouterCore$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RouterProfile.kt$RouterProfile$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ScreenRenderer.kt$ScreenRenderer$e: Exception</ID>
+    <ID>TooManyFunctions:RouterCore.kt$RouterCore</ID>
+    <ID>UnusedParameter:KeyboardCollections.kt$KeyboardCollections$currentIndex: Int</ID>
+    <ID>UnusedParameter:KeyboardCollections.kt$KeyboardCollections$hasMore: Boolean = false</ID>
+    <ID>UnusedParameter:KeyboardCollections.kt$KeyboardCollections$itemsCount: Int</ID>
+    <ID>UnusedParameter:KeyboardCollections.kt$KeyboardCollections$totalCount: Int</ID>
+    <ID>UnusedParameter:KeyboardFactory.kt$KeyboardFactory$isAdmin: Boolean = false</ID>
+    <ID>UnusedParameter:RouterCollectionsFavorites.kt$RouterCollectionsFavorites$uid: Long</ID>
+    <ID>UnusedParameter:RouterMemes.kt$RouterMemes$messageId: Long? = null</ID>
+    <ID>UnusedParameter:RouterMemes.kt$RouterMemes$users: UserRepository</ID>
+    <ID>UnusedParameter:RouterTests.kt$RouterTests$tests: TestRepository</ID>
+    <ID>UnusedParameter:RouterTests.kt$RouterTests$users: UserRepository</ID>
+    <ID>UnusedParameter:ScreenRenderer.kt$ScreenRenderer$bot: Bot</ID>
+    <ID>UnusedParameter:ScreenRenderer.kt$callbackQueryId: String</ID>
+    <ID>UnusedParameter:ScreenRenderer.kt$showAlert: Boolean? = null</ID>
+    <ID>UnusedPrivateMember:RouterCore.kt$RouterCore$private fun handleFavoriteAction(bot: Bot, chat: ChatId, uid: Long, session: Session)</ID>
+    <ID>UnusedPrivateProperty:FileValidator.kt$FileValidator$private val VALID_IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")</ID>
+    <ID>UnusedPrivateProperty:RouterCollections.kt$RouterCollections$val currentResults = if (currentResultsData.isNotEmpty()) { currentResultsData.split("|").mapNotNull { itemData -&gt; val parts = itemData.split(":") if (parts.size == 2) { // В реальном приложении здесь нужно будет восстанавливать объекты // Пока просто загружаем заново все результаты null } else null } } else emptyList()</ID>
+    <ID>UnusedPrivateProperty:RouterMemes.kt$RouterMemes$val entering = session.data["meme_screen"] != "feed" || session.action != PendingAction.NONE</ID>
+  </CurrentIssues>
+</SmellBaseline>

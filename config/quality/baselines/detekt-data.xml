@@ -1,0 +1,77 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:BooksApi.kt$BookApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>CyclomaticComplexMethod:GamesApi.kt$GameApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>CyclomaticComplexMethod:KinoApi.kt$KinoApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>CyclomaticComplexMethod:RecommendationRepository.kt$RecommendationRepository$private fun rankByRelevance(items: List&lt;RecommendationItem&gt;, query: String): List&lt;RecommendationItem&gt;</ID>
+    <ID>CyclomaticComplexMethod:SeedData.kt$SeedData$fun ensure()</ID>
+    <ID>EmptyFunctionBlock:ApiClient.kt$ApiClient.&lt;no name provided&gt;${}</ID>
+    <ID>FunctionOnlyReturningConstant:CollectionsSchema.kt$CollectionsSchema$fun createRecommendationsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:CollectionsSchema.kt$CollectionsSchema$fun createUserFavoritesTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:EventsSchema.kt$EventsSchema$fun createEventItemsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:EventsSchema.kt$EventsSchema$fun createEventParticipantsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:FeedbackSchema.kt$FeedbackSchema$fun createFeedbackItemsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:GamesSchema.kt$GamesSchema$fun createGameStatsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:MemesSchema.kt$MemesSchema$fun createMemeFavoritesTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:MemesSchema.kt$MemesSchema$fun createMemeHistoryTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:MemesSchema.kt$MemesSchema$fun createMemeVotesTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:MemesSchema.kt$MemesSchema$fun createMemesTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:PredictionsSchema.kt$PredictionsSchema$fun createPredictionHistoryTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:PredictionsSchema.kt$PredictionsSchema$fun createPredictionsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:ProfileSchema.kt$ProfileSchema$fun createBannedUsersTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:ProfileSchema.kt$ProfileSchema$fun createUserTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:TestSchema.kt$TestSchema$fun createTestAnswersTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:TestSchema.kt$TestSchema$fun createTestQuestionsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:TestSchema.kt$TestSchema$fun createTestRunsTable(): String</ID>
+    <ID>FunctionOnlyReturningConstant:TestSchema.kt$TestSchema$fun createTestsTable(): String</ID>
+    <ID>LongMethod:GamesApi.kt$GameApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>LongMethod:KinoApi.kt$KinoApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>LongMethod:SeedData.kt$SeedData$fun ensure()</ID>
+    <ID>LoopWithTooManyJumpStatements:KinoApi.kt$KinoApi$for</ID>
+    <ID>MatchingDeclarationName:BooksApi.kt$BookApi : ExternalApi</ID>
+    <ID>MatchingDeclarationName:EventsModels.kt$EventItem</ID>
+    <ID>MatchingDeclarationName:FeedbackModels.kt$FeedbackItem</ID>
+    <ID>MatchingDeclarationName:GamesApi.kt$GameApi : ExternalApi</ID>
+    <ID>MatchingDeclarationName:GamesModels.kt$GameStats</ID>
+    <ID>MatchingDeclarationName:PredictionsModels.kt$PredictionItem</ID>
+    <ID>NestedBlockDepth:AvatarService.kt$AvatarService$fun cleanupExpiredTemporaryFiles()</ID>
+    <ID>NestedBlockDepth:ContentModeration.kt$ContentModerationService$fun nextPending(actor: Long, kind: String, afterId: Long): Submission?</ID>
+    <ID>NestedBlockDepth:ImageAvatarProcess.kt$ImageAvatarProcess$fun processAvatarDirectory(dirPath: String): Boolean</ID>
+    <ID>NestedBlockDepth:KinoApi.kt$KinoApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>NestedBlockDepth:SeedData.kt$SeedData$fun ensure()</ID>
+    <ID>NewLineAtEndOfFile:ApiClient.kt$data.apis.ApiClient.kt</ID>
+    <ID>NewLineAtEndOfFile:BooksApi.kt$data.apis.BooksApi.kt</ID>
+    <ID>NewLineAtEndOfFile:GamesApi.kt$data.apis.GamesApi.kt</ID>
+    <ID>NewLineAtEndOfFile:KinoApi.kt$data.apis.KinoApi.kt</ID>
+    <ID>PrintStackTrace:AvatarService.kt$AvatarService$e</ID>
+    <ID>PrintStackTrace:SeedData.kt$SeedData$e</ID>
+    <ID>ReturnCount:AvatarService.kt$AvatarService$fun downloadAvatarFromTelegram(fileId: String): String?</ID>
+    <ID>ReturnCount:AvatarService.kt$AvatarService$fun processAvatarImage(fileId: String, mode: String): String?</ID>
+    <ID>ReturnCount:BooksApi.kt$BookApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>ReturnCount:GamesApi.kt$GameApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>ReturnCount:ImageAvatarProcess.kt$ImageAvatarProcess$fun getImageSize(filePath: String): Pair&lt;Int, Int&gt;?</ID>
+    <ID>ReturnCount:KinoApi.kt$KinoApi$override fun search(query: String, limit: Int): List&lt;RecommendationItem&gt;</ID>
+    <ID>ReturnCount:ModerationService.kt$ModerationService$fun checkText(userId: Long, text: String): ModerationResult</ID>
+    <ID>SwallowedException:ImageAvatarProcess.kt$ImageAvatarProcess$e: Exception</ID>
+    <ID>SwallowedException:ModerationService.kt$ModerationService$e: PatternSyntaxException</ID>
+    <ID>TooGenericExceptionCaught:AdminService.kt$AdminService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AvatarService.kt$AvatarService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:BooksApi.kt$BookApi$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ContentModeration.kt$ContentModerationService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Db.kt$Db$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:GamesApi.kt$GameApi$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ImageAvatarProcess.kt$ImageAvatarProcess$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:KinoApi.kt$KinoApi$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ModerationService.kt$ModerationService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Schema.kt$Schema$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SeedData.kt$SeedData$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TestRepository.kt$TestRepository$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:UserRepository.kt$UserRepository$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:ImageAvatarProcess.kt$ImageAvatarProcess$throw Exception("Не удалось прочитать изображение")</ID>
+    <ID>UnusedPrivateProperty:AdminService.kt$AdminService$private val pass = (env["DATABASE_PASSWORD"] ?: System.getenv("DATABASE_PASSWORD") ?: "").trim()</ID>
+    <ID>UnusedPrivateProperty:AdminService.kt$AdminService$private val url = (env["DATABASE_URL"] ?: System.getenv("DATABASE_URL") ?: error("DATABASE_URL is not set")).trim()</ID>
+    <ID>UnusedPrivateProperty:AdminService.kt$AdminService$private val user = (env["DATABASE_USER"] ?: System.getenv("DATABASE_USER") ?: "").trim()</ID>
+  </CurrentIssues>
+</SmellBaseline>
